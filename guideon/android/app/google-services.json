@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "787240437833",
+    "project_id": "guideon-f34a6",
+    "storage_bucket": "guideon-f34a6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:787240437833:android:79f5da2c0f3a0b4a911798",
+        "android_client_info": {
+          "package_name": "com.example.guideon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbP75Dh0QsuCfvqWpSCoX80gL3_ZTqLbw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
