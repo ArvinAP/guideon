@@ -228,11 +228,4 @@ class AuthService {
     await updateUserProgress(uid, defaultProgress);
     return defaultProgress;
   }
-
-  static String _determineRole({required String email, required String username}) {
-    if (_adminEmails.contains(email.toLowerCase()) || username.toLowerCase() == 'admin') {
-      return 'admin';
-    }
-    return 'user';
-  }
 }
