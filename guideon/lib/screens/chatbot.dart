@@ -28,10 +28,29 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final List<ChatMessage> _messages = [];
   final TextEditingController _controller = TextEditingController();
   bool _isSending = false;
+  bool _engaged =
+      false; // becomes true after user saves mood/motivation or sends a message
+  late String _selectedMood;
+  static const List<String> _moodOptions = [
+    'Happy',
+    'Neutral',
+    'Sad',
+    'Anxious',
+    'Stressed',
+  ];
+
+  String _normalizeMood(String v) {
+    final s = v.trim();
+    for (final opt in _moodOptions) {
+      if (opt.toLowerCase() == s.toLowerCase()) return opt;
+    }
+    return 'Neutral';
+  }
 
   @override
   void initState() {
     super.initState();
+    _selectedMood = _normalizeMood(widget.mood);
     // Seed the conversation with a system message using mood
     final intro =
         "You are GuideOn, a friendly, empathetic mental-health companion. The user's current mood is '${widget.mood}'. Respond briefly, kindly, and ask one gentle follow-up.";
@@ -96,6 +115,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _controller.clear();
       _messages.add(ChatMessage(role: 'user', content: text));
       _isSending = true;
+      _engaged = true; // user interacted
     });
 
     final reply = await _callOpenAI(_messages);
@@ -122,18 +142,13 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const DashboardPage(),
-                        ),
-                      );
+                      Navigator.pop(context, _engaged);
                     },
                   ),
                   const SizedBox(width: 8),
                   Chip(
                     backgroundColor: const Color(0xFFFFF9AF),
-                    label: Text('I feel ${widget.mood}'),
+                    label: Text('I feel $_selectedMood'),
                     labelStyle: const TextStyle(
                       fontFamily: 'Comfortaa',
                     ),
@@ -148,52 +163,85 @@ class _ChatbotPageState extends State<ChatbotPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFDBF1F5),
+                    color: const Color(0xFFD6F1F6),
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
+                    border:
+                        Border.all(color: const Color(0xFF2EC4B6), width: 1.5),
+                    boxShadow: const [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
+                        color: Color(0x33000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: ListView.builder(
-                    itemCount: _messages.length,
-                    padding: const EdgeInsets.only(bottom: 12),
-                    itemBuilder: (context, i) {
-                      final m = _messages[i];
-                      if (m.role == 'system') {
-                        return const SizedBox.shrink();
-                      }
-                      final isUser = m.role == 'user';
-                      return Align(
-                        alignment: isUser
-                            ? Alignment.centerRight
-                            : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          constraints: const BoxConstraints(maxWidth: 280),
-                          decoration: BoxDecoration(
-                            color:
-                                isUser ? const Color(0xFFFFF9AF) : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: const Color.fromARGB(255, 21, 77, 113),
-                              width: 1.0,
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () {
+                              Navigator.pop(context, _engaged);
+                            },
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF9AF),
+                              borderRadius: BorderRadius.circular(20),
                             ),
+                            child: Text('I feel $_selectedMood'),
                           ),
-                          child: Text(
-                            m.content,
-                            style: const TextStyle(
-                                color: Color.fromARGB(255, 21, 77, 113)),
-                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _messages.length,
+                          padding: const EdgeInsets.only(bottom: 12),
+                          itemBuilder: (context, i) {
+                            final m = _messages[i];
+                            if (m.role == 'system') {
+                              return const SizedBox.shrink();
+                            }
+                            final isUser = m.role == 'user';
+                            return Align(
+                              alignment: isUser
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                constraints:
+                                    const BoxConstraints(maxWidth: 280),
+                                decoration: BoxDecoration(
+                                  color: isUser
+                                      ? const Color(0xFFFFF9AF)
+                                      : Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color:
+                                        const Color.fromARGB(255, 21, 77, 113),
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Text(
+                                  m.content,
+                                  style: const TextStyle(
+                                      color: Color.fromARGB(255, 21, 77, 113)),
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
               ),

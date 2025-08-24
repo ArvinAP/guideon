@@ -46,7 +46,7 @@ class _MoodPageState extends State<MoodPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context, false),
               ),
             ),
 
@@ -145,8 +145,8 @@ class _MoodPageState extends State<MoodPage> {
               child: Center(
                 child: PrimaryButton(
                   text: 'Continue',
-                  onPressed: () {
-                    Navigator.push(
+                  onPressed: () async {
+                    final res = await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => ChatbotPage(
@@ -155,6 +155,9 @@ class _MoodPageState extends State<MoodPage> {
                         ),
                       ),
                     );
+                    // Bubble the engagement result (true/false) back to Dashboard
+                    if (!context.mounted) return;
+                    Navigator.pop(context, res == true);
                   },
                 ),
               ),

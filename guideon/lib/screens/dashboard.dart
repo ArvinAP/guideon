@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../components/bottom_nav.dart';
 import '../models/user_data.dart';
@@ -9,6 +10,7 @@ import 'streak_pet.dart';
 import 'bible_verses.dart';
 import 'motivational_quotes.dart';
 import 'journal_list.dart';
+import 'mood.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -33,6 +35,8 @@ class _DashboardPageState extends State<DashboardPage> {
   List<DailyTask> dailyTasks = [];
   Timer? _midnightTimer;
   DateTime? _lastAwardedDay;
+  bool _chatbotAttemptedToday =
+      false; // prevent repeated launches in one session
 
   @override
   void initState() {
@@ -75,6 +79,7 @@ class _DashboardPageState extends State<DashboardPage> {
         _updateDailyTasks(progress);
       });
       _scheduleMidnightReset();
+      _maybeShowDailyChatbot();
     } catch (e) {
       // Fallback to default data if Firestore fails
       final progress = UserProgress(
@@ -91,6 +96,7 @@ class _DashboardPageState extends State<DashboardPage> {
         _updateDailyTasks(progress);
       });
       _scheduleMidnightReset();
+      _maybeShowDailyChatbot();
     }
   }
 
@@ -260,7 +266,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white, width: 2),
                   boxShadow: const [
-                    BoxShadow(blurRadius: 6, offset: Offset(0, 2), color: tileShadow),
+                    BoxShadow(
+                        blurRadius: 6, offset: Offset(0, 2), color: tileShadow),
                   ],
                 ),
                 child: Column(
@@ -269,7 +276,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: List.generate(4, (index) {
-                        final derivedWeek = ((progress.currentStreak + 6) ~/ 7).clamp(0, 4);
+                        final derivedWeek =
+                            ((progress.currentStreak + 6) ~/ 7).clamp(0, 4);
                         bool isActive = index < derivedWeek;
                         return Container(
                           width: 56,
@@ -282,7 +290,10 @@ class _DashboardPageState extends State<DashboardPage> {
                               width: 2,
                             ),
                             boxShadow: const [
-                              BoxShadow(blurRadius: 4, offset: Offset(0, 2), color: tileShadow),
+                              BoxShadow(
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                  color: tileShadow),
                             ],
                           ),
                           child: Center(
@@ -342,25 +353,30 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   if (allDone && userProgress != null) {
                     final lastInc = userProgress!.lastStreakIncrement;
-                    final alreadyAwardedToday = lastInc != null &&
-                        UserProgress.isSameDay(lastInc, ymd);
+                    final alreadyAwardedToday =
+                        lastInc != null && UserProgress.isSameDay(lastInc, ymd);
                     final guardAwarded = _lastAwardedDay != null &&
                         UserProgress.isSameDay(_lastAwardedDay!, ymd);
                     if (!alreadyAwardedToday && !guardAwarded) {
-                      // Increment streak day (max 30) and update week box 1..4
-                      final nextStreak = (userProgress!.currentStreak + 1).clamp(0, userProgress!.totalDays);
-                      final week = ((nextStreak + 6) ~/ 7).clamp(1, 4);
-                      setState(() {
-                        userProgress = userProgress!.copyWith(
-                          currentStreak: nextStreak,
-                          currentDay: week,
-                          lastStreakIncrement: ymd,
-                          lastTaskDate: ymd,
-                          lastUpdated: ymd,
-                        );
-                        _lastAwardedDay = ymd;
+                      // Defer state updates to after build to avoid setState() during build
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        // Increment streak day (max 30) and update week box 1..4
+                        final nextStreak = (userProgress!.currentStreak + 1)
+                            .clamp(0, userProgress!.totalDays);
+                        final week = ((nextStreak + 6) ~/ 7).clamp(1, 4);
+                        if (!mounted) return;
+                        setState(() {
+                          userProgress = userProgress!.copyWith(
+                            currentStreak: nextStreak,
+                            currentDay: week,
+                            lastStreakIncrement: ymd,
+                            lastTaskDate: ymd,
+                            lastUpdated: ymd,
+                          );
+                          _lastAwardedDay = ymd;
+                        });
+                        _updateUserProgress();
                       });
-                      _updateUserProgress();
                     }
                   }
                   Widget tile({
@@ -383,7 +399,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: const [
-                              BoxShadow(blurRadius: 8, offset: Offset(0, 4), color: tileShadow),
+                              BoxShadow(
+                                  blurRadius: 8,
+                                  offset: Offset(0, 4),
+                                  color: tileShadow),
                             ],
                             border: Border.all(color: Colors.white, width: 2),
                           ),
@@ -405,16 +424,21 @@ class _DashboardPageState extends State<DashboardPage> {
                                         bottomRight: Radius.circular(18),
                                       ),
                                       boxShadow: [
-                                        BoxShadow(blurRadius: 6, offset: Offset(0, 3), color: tileShadow),
+                                        BoxShadow(
+                                            blurRadius: 6,
+                                            offset: Offset(0, 3),
+                                            color: tileShadow),
                                       ],
                                     ),
                                   ),
                                 ),
                                 // Content
                                 Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 48, 16, 14),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(16, 48, 16, 14),
                                   child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Flexible(
                                         child: FittedBox(
@@ -438,14 +462,19 @@ class _DashboardPageState extends State<DashboardPage> {
                                       if (subtitle != null)
                                         Text(
                                           subtitle,
-                                          style: const TextStyle(color: Colors.black54),
+                                          style: const TextStyle(
+                                              color: Colors.black54),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       const SizedBox(height: 6),
                                       Icon(
-                                        done ? Icons.check_circle : Icons.radio_button_unchecked,
-                                        color: done ? Colors.green[700] : Colors.black38,
+                                        done
+                                            ? Icons.check_circle
+                                            : Icons.radio_button_unchecked,
+                                        color: done
+                                            ? Colors.green[700]
+                                            : Colors.black38,
                                       ),
                                     ],
                                   ),
@@ -469,7 +498,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const JournalListPage()),
+                                MaterialPageRoute(
+                                    builder: (_) => const JournalListPage()),
                               );
                             },
                             gradient: const [Color(0xFFDFF7FF), Colors.white],
@@ -481,7 +511,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const BibleVersesPage()),
+                                MaterialPageRoute(
+                                    builder: (_) => const BibleVersesPage()),
                               );
                             },
                             gradient: const [Color(0xFFD8F1FF), Colors.white],
@@ -497,10 +528,15 @@ class _DashboardPageState extends State<DashboardPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MotivationalQuotesPage()),
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        const MotivationalQuotesPage()),
                               );
                             },
-                            gradient: const [Color(0xFFD8F1FF), Color(0xFFFFDDE3)],
+                            gradient: const [
+                              Color(0xFFD8F1FF),
+                              Color(0xFFFFDDE3)
+                            ],
                           ),
                           const SizedBox(width: 16),
                           tile(
@@ -509,7 +545,8 @@ class _DashboardPageState extends State<DashboardPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const StreakPetPage()),
+                                MaterialPageRoute(
+                                    builder: (_) => const StreakPetPage()),
                               );
                             },
                             gradient: const [Color(0xFFFFF0E6), Colors.white],
@@ -522,12 +559,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           tile(
                             title: 'Use\nChatbot',
                             done: today.chatbotUsed,
-                            onTap: () {
-                              DailyTasksService.instance.mark('chatbotUsed');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Navigate to: Chatbot')),
-                              );
-                            },
+                            onTap: _openMoodChatFlow,
                             gradient: const [Color(0xFFDFF7FF), Colors.white],
                           ),
                           const SizedBox(width: 16),
@@ -578,7 +610,10 @@ class _DashboardPageState extends State<DashboardPage> {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white, width: 1),
                     boxShadow: const [
-                      BoxShadow(blurRadius: 6, offset: Offset(0, 3), color: tileShadow),
+                      BoxShadow(
+                          blurRadius: 6,
+                          offset: Offset(0, 3),
+                          color: tileShadow),
                     ],
                   ),
                   child: const Center(
@@ -600,10 +635,7 @@ class _DashboardPageState extends State<DashboardPage> {
         onItemSelected: (i) {
           // TODO: Implement proper navigation to each section
           if (i == 0) {
-            // Navigate to chatbot
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Navigate to: Chatbot')),
-            );
+            _openMoodChatFlow();
           } else if (i == 1) {
             // Navigate to Bible Verses
             Navigator.push(
@@ -626,5 +658,59 @@ class _DashboardPageState extends State<DashboardPage> {
         },
       ),
     );
+  }
+
+  // --- Daily Chatbot auto-open (6:00 AM Philippines time) ------------------
+  DateTime _manilaNow() {
+    // Manila (Asia/Manila) is UTC+8, no DST. Compute relative to UTC to be consistent
+    return DateTime.now().toUtc().add(const Duration(hours: 8));
+  }
+
+  Future<void> _maybeShowDailyChatbot() async {
+    try {
+      final nowPh = _manilaNow();
+      final shownKey = 'chatbot_last_shown_ymd';
+      final ymd =
+          '${nowPh.year}-${nowPh.month.toString().padLeft(2, '0')}-${nowPh.day.toString().padLeft(2, '0')}';
+      final prefs = await SharedPreferences.getInstance();
+      final lastShown = prefs.getString(shownKey);
+
+      final isAfterSix = nowPh.hour > 6 ||
+          (nowPh.hour == 6 && (nowPh.minute > 0 || nowPh.second > 0));
+      if (isAfterSix && lastShown != ymd && !_chatbotAttemptedToday) {
+        _chatbotAttemptedToday = true; // only once per app session
+        // Defer navigation to after current frame
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final username = AuthService.currentUser?.displayName;
+          // Show Mood selection first; it will forward to Chatbot and return true when engaged
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MoodPage(username: username),
+            ),
+          );
+          // If user engaged/completed, store today's date to stop further prompts today
+          if (result == true) {
+            await prefs.setString(shownKey, ymd);
+          }
+        });
+      }
+    } catch (_) {
+      // Swallow errors to keep dashboard resilient
+    }
+  }
+
+  Future<void> _openMoodChatFlow() async {
+    final username = AuthService.currentUser?.displayName;
+    final res = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MoodPage(username: username),
+      ),
+    );
+    if (res == true) {
+      // User engaged with chatbot after selecting mood
+      DailyTasksService.instance.mark('moodChecked');
+      DailyTasksService.instance.mark('chatbotUsed');
+    }
   }
 }
