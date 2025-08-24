@@ -26,7 +26,8 @@ class AuthService {
     );
 
     final uid = cred.user!.uid;
-    final role = _determineRole(email: email, username: username);
+    // Default all new signups to 'user'. Admins must be promoted via DB.
+    const String role = 'user';
 
     // Attempt to create the user profile document with retries so the
     // collection is created automatically once Firestore becomes available.
@@ -83,7 +84,10 @@ class AuthService {
     Duration delay = initialDelay;
     while (true) {
       try {
-        await _db.collection('users').doc(uid).set(data, SetOptions(merge: true));
+        await _db
+            .collection('users')
+            .doc(uid)
+            .set(data, SetOptions(merge: true));
         return; // success
       } on FirebaseException catch (e) {
         final code = e.code;
@@ -123,7 +127,7 @@ class AuthService {
         profile = doc.data();
       } else {
         // Backfill profile for users created before Firestore was available
-        final role = _determineRole(email: email, username: '');
+        const String role = 'user';
         profile = {
           'firstName': '',
           'lastName': '',
@@ -139,7 +143,8 @@ class AuthService {
       if (e.code == 'permission-denied' || e.code == 'not-found') {
         profile = {
           'email': user.email ?? email,
-          'role': _determineRole(email: email, username: ''),
+          // Without Firestore, assume regular user; admins must be read from DB.
+          'role': 'user',
         };
       } else {
         rethrow;
@@ -181,7 +186,8 @@ class AuthService {
     }
   }
 
-  static Future<void> updateUserProgress(String uid, Map<String, dynamic> progressData) async {
+  static Future<void> updateUserProgress(
+      String uid, Map<String, dynamic> progressData) async {
     try {
       await _db.collection('userProgress').doc(uid).set({
         ...progressData,
@@ -196,7 +202,8 @@ class AuthService {
     }
   }
 
-  static Future<void> updateUserProfile(String uid, Map<String, dynamic> profileData) async {
+  static Future<void> updateUserProfile(
+      String uid, Map<String, dynamic> profileData) async {
     try {
       await _db.collection('users').doc(uid).update({
         ...profileData,
@@ -224,15 +231,8 @@ class AuthService {
       'lastStreakIncrement': null,
       'createdAt': FieldValue.serverTimestamp(),
     };
-    
+
     await updateUserProgress(uid, defaultProgress);
     return defaultProgress;
-  }
-
-  static String _determineRole({required String email, required String username}) {
-    if (_adminEmails.contains(email.toLowerCase()) || username.toLowerCase() == 'admin') {
-      return 'admin';
-    }
-    return 'user';
   }
 }

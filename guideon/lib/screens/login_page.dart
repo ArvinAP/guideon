@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:guideon/components/buttons.dart';
 import 'package:guideon/screens/signup_page.dart';
-import 'package:guideon/screens/greeting_page.dart';
 import 'package:guideon/screens/admin_dashboard.dart';
 import 'package:guideon/services/auth_service.dart';
+import 'package:guideon/screens/dashboard.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -105,7 +105,7 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const GreetingPage()),
+          MaterialPageRoute(builder: (_) => const DashboardPage()),
           (route) => false,
         );
       }
