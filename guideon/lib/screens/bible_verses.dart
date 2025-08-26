@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/daily_tasks_service.dart';
 
 class BibleVersesPage extends StatefulWidget {
@@ -17,15 +19,13 @@ class _BibleVersesPageState extends State<BibleVersesPage>
   final Color headerColor = const Color(0xFF2E7AA1);
   final Color textPrimary = const Color(0xFF154D71);
 
-  // Simple local quotes list. Replace with Firestore later if needed.
-  final List<String> _quotes = const [
-    '"I can do all things through Christ who strengthens me."\n— Philippians 4:13',
-    '"The Lord is my shepherd; I shall not want."\n— Psalm 23:1',
-    '"Be strong and courageous. Do not be afraid; do not be discouraged, for the Lord your God will be with you wherever you go."\n— Joshua 1:9',
-    '"Cast all your anxiety on Him because He cares for you."\n— 1 Peter 5:7',
-  ];
-
-  String get _todaysQuote => _quotes[DateTime.now().day % _quotes.length];
+  // Firestore-backed data
+  List<_VerseItem> _filteredItems = [];
+  List<String> _themes = const ['All', 'happy', 'neutral', 'excited', 'angry', 'sad'];
+  String _selectedTheme = 'All';
+  int _currentIndex = 0;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
+  Set<String> _debugThemes = {};
 
   @override
   void initState() {
@@ -34,11 +34,13 @@ class _BibleVersesPageState extends State<BibleVersesPage>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
+    _subscribe();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _sub?.cancel();
     super.dispose();
   }
 
@@ -49,8 +51,76 @@ class _BibleVersesPageState extends State<BibleVersesPage>
       _controller.forward();
       // Mark verse viewed as a daily task
       DailyTasksService.instance.mark('bibleRead');
+      // advance to another verse within the filtered theme
+      if (_filteredItems.isNotEmpty) {
+        // choose a random next index different from current when possible
+        final rand = math.Random();
+        int next = _filteredItems.length == 1 ? 0 : rand.nextInt(_filteredItems.length);
+        if (next == _currentIndex && _filteredItems.length > 1) {
+          next = (next + 1) % _filteredItems.length;
+        }
+        setState(() => _currentIndex = next);
+      }
     }
     setState(() => _isFront = !_isFront);
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    final sel = _selectedTheme.trim();
+    final selLower = sel.toLowerCase();
+    final selUpper = sel.toUpperCase();
+    final selCap = sel.isEmpty ? sel : selLower[0].toUpperCase() + selLower.substring(1);
+    Query<Map<String, dynamic>> q = FirebaseFirestore.instance.collection('verses');
+    if (selLower != 'all' && selLower.isNotEmpty) {
+      q = q.where('themes', arrayContainsAny: [selLower, selCap, selUpper]);
+    }
+    _sub = q.snapshots().listen((snap) {
+      final items = snap.docs.map((d) {
+        final data = d.data();
+        final text = (data['text'] ?? '').toString();
+        final ref = (data['reference'] ?? data['ref'] ?? '').toString();
+        final themes = _parseThemes(data['themes']);
+        return _VerseItem(text: text, reference: ref, themes: themes);
+      }).where((e) => e.text.isNotEmpty).toList();
+
+      setState(() {
+        _filteredItems = items;
+        _debugThemes = items
+            .expand((e) => e.themes)
+            .map((t) => t.toString().toLowerCase().trim())
+            .where((t) => t.isNotEmpty)
+            .toSet();
+        _currentIndex = _filteredItems.isEmpty ? 0 : _currentIndex % _filteredItems.length;
+      });
+      // Debug
+      // ignore: avoid_print
+      debugPrint('Verses (server-filtered) loaded: ${_filteredItems.length} for theme "$selLower"');
+    });
+  }
+
+  List<String> _parseThemes(dynamic raw) {
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      // Allow comma-separated string fallback
+      return raw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return <String>[];
+  }
+
+  // Filtering is handled server-side via arrayContains; _filteredItems mirrors query results.
+
+  String get _currentText {
+    if (_filteredItems.isEmpty) return 'No verses found for this theme.';
+    final it = _filteredItems[_currentIndex];
+    final ref = it.reference.isNotEmpty ? '\n— ${it.reference}' : '';
+    return '${it.text}$ref';
   }
 
   @override
@@ -83,6 +153,58 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                     fontWeight: FontWeight.w800,
                     fontFamily: 'Coiny',
                   ),
+                ),
+              ),
+            ),
+
+            // Themes dropdown
+            Positioned(
+              top: 56,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedTheme,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items: _themes
+                              .map((t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                                  ))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val == null) return;
+                            setState(() => _selectedTheme = val);
+                            _subscribe();
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    // Tiny debug counter (remove later if desired)
+                    Text(
+                      'Loaded: ${_filteredItems.length}',
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Themes seen: ${_debugThemes.join(', ')}',
+                      style: const TextStyle(color: Colors.black45, fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -164,7 +286,7 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                                           Icon(Icons.format_quote, size: 36, color: textPrimary.withOpacity(0.7)),
                                           const SizedBox(height: 12),
                                           Text(
-                                            _todaysQuote,
+                                            _currentText,
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               color: textPrimary,
@@ -229,78 +351,9 @@ class _BibleVersesPageState extends State<BibleVersesPage>
   }
 }
 
-class _CardBack extends StatelessWidget {
-  final String imagePath;
-  const _CardBack({super.key, required this.imagePath});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF154D71), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          )
-        ],
-      ),
-      padding: const EdgeInsets.all(8),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Image.asset(
-          imagePath,
-          fit: BoxFit.cover,
-        ),
-      ),
-    );
-  }
-}
-
-class _CardFront extends StatelessWidget {
-  final String quote;
-  final Color textPrimary;
-  const _CardFront({super.key, required this.quote, required this.textPrimary});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF154D71), width: 3),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          )
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.format_quote, size: 36, color: textPrimary.withOpacity(0.7)),
-          const SizedBox(height: 12),
-          Text(
-            quote,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: textPrimary,
-              fontFamily: 'Comfortaa',
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Icon(Icons.format_quote, size: 36, color: textPrimary.withOpacity(0.7)),
-        ],
-      ),
-    );
-  }
+class _VerseItem {
+  final String text;
+  final String reference;
+  final List<String> themes;
+  _VerseItem({required this.text, required this.reference, required this.themes});
 }

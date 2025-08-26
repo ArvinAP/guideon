@@ -5,6 +5,8 @@ class UserProgress {
   final int currentDay;
   final int journalEntries;
   final int quotesLiked;
+  final int petPoints; // 0..infinity, each 100 unlocks next look
+  final int petLevel; // cosmetic level derived from points (every 100)
   final DateTime lastUpdated;
   final DateTime? lastTaskDate; // last day any task was completed
   final DateTime? lastDailyReset; // last time daily tasks were reset
@@ -17,6 +19,8 @@ class UserProgress {
     required this.currentDay,
     required this.journalEntries,
     required this.quotesLiked,
+    required this.petPoints,
+    required this.petLevel,
     required this.lastUpdated,
     this.lastTaskDate,
     this.lastDailyReset,
@@ -31,6 +35,8 @@ class UserProgress {
       currentDay: json['currentDay'] ?? 1,
       journalEntries: json['journalEntries'] ?? 0,
       quotesLiked: json['quotesLiked'] ?? 0,
+      petPoints: json['petPoints'] ?? 0,
+      petLevel: json['petLevel'] ?? ((json['petPoints'] ?? 0) ~/ 100) + 1,
       lastUpdated: DateTime.parse(json['lastUpdated'] ?? DateTime.now().toIso8601String()),
       lastTaskDate: json['lastTaskDate'] != null ? DateTime.parse(json['lastTaskDate']) : null,
       lastDailyReset: json['lastDailyReset'] != null ? DateTime.parse(json['lastDailyReset']) : null,
@@ -46,6 +52,8 @@ class UserProgress {
       'currentDay': currentDay,
       'journalEntries': journalEntries,
       'quotesLiked': quotesLiked,
+      'petPoints': petPoints,
+      'petLevel': petLevel,
       'lastUpdated': lastUpdated.toIso8601String(),
       'lastTaskDate': lastTaskDate?.toIso8601String(),
       'lastDailyReset': lastDailyReset?.toIso8601String(),
@@ -60,6 +68,8 @@ class UserProgress {
     int? currentDay,
     int? journalEntries,
     int? quotesLiked,
+    int? petPoints,
+    int? petLevel,
     DateTime? lastUpdated,
     DateTime? lastTaskDate,
     DateTime? lastDailyReset,
@@ -72,6 +82,8 @@ class UserProgress {
       currentDay: currentDay ?? this.currentDay,
       journalEntries: journalEntries ?? this.journalEntries,
       quotesLiked: quotesLiked ?? this.quotesLiked,
+      petPoints: petPoints ?? this.petPoints,
+      petLevel: petLevel ?? this.petLevel,
       lastUpdated: lastUpdated ?? this.lastUpdated,
       lastTaskDate: lastTaskDate ?? this.lastTaskDate,
       lastDailyReset: lastDailyReset ?? this.lastDailyReset,

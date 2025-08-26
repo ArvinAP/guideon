@@ -1,13 +1,12 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:guideon/services/chat_service.dart';
 import '../components/bottom_nav.dart';
 import 'dashboard.dart';
+import 'bible_verses.dart';
+import 'motivational_quotes.dart';
+import 'journal_list.dart';
 
-/// Set your OpenAI API key at build/run time using a Dart define:
-/// flutter run --dart-define=OPENAI_API_KEY=sk-xxxxxxxx
-const String kOpenAIApiKey = String.fromEnvironment('OPENAI_API_KEY');
+// Chat now uses Firebase Cloud Functions via ChatService; no direct API keys in app.
 
 class ChatMessage {
   final String role; // 'user' | 'assistant' | 'system'
@@ -31,6 +30,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   bool _engaged =
       false; // becomes true after user saves mood/motivation or sends a message
   late String _selectedMood;
+  bool _hasShownQuote = false; // controls when to fetch another quote
   static const List<String> _moodOptions = [
     'Happy',
     'Neutral',
@@ -63,48 +63,31 @@ class _ChatbotPageState extends State<ChatbotPage> {
     ));
   }
 
-  Future<String> _callOpenAI(List<ChatMessage> history) async {
-    if (kOpenAIApiKey.isEmpty) {
-      // No key yet: return a mock response to keep the app functional.
-      await Future.delayed(const Duration(milliseconds: 600));
-      return "(Demo) Thanks for sharing. Once the API key is added, I'll generate thoughtful responses. How are you feeling right now?";
-    }
+  String _formatQuote({required String text, String? source, String? verse}) {
+    final parts = <String>[];
+    if (text.isNotEmpty) parts.add('"$text"');
+    final tail = [
+      if ((source ?? '').isNotEmpty) source,
+      if ((verse ?? '').isNotEmpty) '(${verse!.trim()})'
+    ].whereType<String>().join(' ');
+    if (tail.isNotEmpty) parts.add('— $tail');
+    return parts.join(' ');
+  }
 
-    final uri = Uri.parse('https://api.openai.com/v1/chat/completions');
-    final client = HttpClient();
-    try {
-      final req = await client.postUrl(uri);
-      req.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-      req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $kOpenAIApiKey');
+  bool _wantsQuote(String text) {
+    final q = text.toLowerCase();
+    return q.contains('quote') ||
+        q.contains('another one') ||
+        q.contains('give me one') ||
+        q.contains('more inspiration');
+  }
 
-      // Convert history to OpenAI format
-      final msgs = history
-          .map((m) => {
-                'role': m.role,
-                'content': m.content,
-              })
-          .toList();
-
-      final body = jsonEncode({
-        'model': 'gpt-4o-mini',
-        'messages': msgs,
-        'temperature': 0.7,
-      });
-      req.add(utf8.encode(body));
-
-      final res = await req.close();
-      final text = await utf8.decoder.bind(res).join();
-
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        final Map<String, dynamic> data = jsonDecode(text);
-        final content = data['choices'][0]['message']['content'] as String?;
-        return content ?? "I'm here with you.";
-      } else {
-        return 'Error ${res.statusCode}: ${res.reasonPhrase}\n$text';
-      }
-    } finally {
-      client.close();
-    }
+  String _empatheticReply(String userText) {
+    // Simple local fallback to keep the convo flowing without requesting a new quote.
+    // You can swap this to call a dedicated chat endpoint later.
+    final mood = _selectedMood.toLowerCase();
+    return "I hear you. Given you're feeling $mood, that sounds really valid. "
+        "What do you think would help a little right now? I'm here to listen.";
   }
 
   Future<void> _send() async {
@@ -118,13 +101,61 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _engaged = true; // user interacted
     });
 
-    final reply = await _callOpenAI(_messages);
+    try {
+      final askForQuote = _wantsQuote(text) || !_hasShownQuote;
 
-    if (!mounted) return;
-    setState(() {
-      _messages.add(ChatMessage(role: 'assistant', content: reply));
-      _isSending = false;
-    });
+      // Prepare short history for backend chat mode
+      final history = _messages
+          .where((m) => m.role == 'user' || m.role == 'assistant')
+          .toList()
+          .take(8)
+          .map((m) => {
+                'role': m.role,
+                'content': m.content,
+              })
+          .toList();
+
+      final result = await ChatService.instance.generateViaVercel(
+        theme: _selectedMood.toLowerCase(),
+        message: text,
+        askForQuote: askForQuote,
+        history: history,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        if (result.quoteText.isNotEmpty) {
+          // Quote mode: show quote then interpretation
+          final quote = _formatQuote(
+            text: result.quoteText,
+            source: result.quoteSource,
+            verse: result.quoteVerse,
+          );
+          _messages.add(ChatMessage(role: 'assistant', content: quote));
+          if (result.interpretation.isNotEmpty) {
+            _messages.add(
+                ChatMessage(role: 'assistant', content: result.interpretation));
+          }
+          _hasShownQuote = true;
+        } else {
+          // Chat mode: interpretation field carries the reply
+          _messages.add(
+              ChatMessage(role: 'assistant', content: result.interpretation));
+        }
+        _isSending = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessage(
+            role: 'assistant',
+            content: 'Sorry, something went wrong. Please try again later.'));
+        _isSending = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   @override
@@ -142,7 +173,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () {
-                      Navigator.pop(context, _engaged);
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => const DashboardPage(
+                            suppressAutoChat: true,
+                          ),
+                        ),
+                        (route) => false,
+                      );
                     },
                   ),
                   const SizedBox(width: 8),
@@ -184,7 +222,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
                           IconButton(
                             icon: const Icon(Icons.close),
                             onPressed: () {
-                              Navigator.pop(context, _engaged);
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (_) => const DashboardPage(
+                                    suppressAutoChat: true,
+                                  ),
+                                ),
+                                (route) => false,
+                              );
                             },
                           ),
                           const Spacer(),
@@ -195,7 +240,12 @@ class _ChatbotPageState extends State<ChatbotPage> {
                               color: const Color(0xFFFFF9AF),
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Text('I feel $_selectedMood'),
+                            child: Text(
+                              'I feel $_selectedMood',
+                              style: const TextStyle(
+                                fontFamily: 'Comfortaa',
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -234,7 +284,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                 child: Text(
                                   m.content,
                                   style: const TextStyle(
-                                      color: Color.fromARGB(255, 21, 77, 113)),
+                                    color: Color.fromARGB(255, 21, 77, 113),
+                                    fontFamily: 'Comfortaa',
+                                  ),
                                 ),
                               ),
                             );
@@ -273,6 +325,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
                         controller: _controller,
                         minLines: 1,
                         maxLines: 5,
+                        style: const TextStyle(
+                          fontFamily: 'Comfortaa',
+                        ),
                         decoration: const InputDecoration(
                           hintText: 'Ask GuideOn',
                           border: InputBorder.none,
@@ -317,15 +372,25 @@ class _ChatbotPageState extends State<ChatbotPage> {
       bottomNavigationBar: GuideOnBottomNav(
         currentIndex: 0,
         onItemSelected: (i) {
-          if (i == 0) return; // already here
-          String label = i == 1
-              ? 'Bible Verses'
-              : i == 2
-                  ? 'Motivational Quotes'
-                  : 'Journal';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Navigate to: $label')),
-          );
+          if (i == 0) {
+            // Already on Chatbot; no-op
+            return;
+          } else if (i == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BibleVersesPage()),
+            );
+          } else if (i == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MotivationalQuotesPage()),
+            );
+          } else if (i == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const JournalListPage()),
+            );
+          }
         },
       ),
     );

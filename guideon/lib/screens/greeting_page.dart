@@ -23,65 +23,47 @@ class GreetingPage extends StatelessWidget {
               ),
             ),
 
-            // Sheep + Speech bubble
+            // Greeting text above, sheep GIF centered below
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Sheep avatar
+                  // Speech bubble-like greeting
                   Container(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 21, 77, 113),
+                        width: 1.2,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withOpacity(0.08),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Simple sheep icon substitute
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: const Color(0xFFFFF9AF),
-                          child: Text(
-                            '🐑',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(fontSize: 28),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Speech bubble
-                        Container(
-                          constraints: const BoxConstraints(maxWidth: 220),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color.fromARGB(255, 21, 77, 113),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: Text(
-                            "Hi ${username ?? 'User'}! I'm GuideOn!",
-                            style: const TextStyle(
-                              color: Color.fromARGB(255, 21, 77, 113),
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Comfortaa',
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      "Hi ${username ?? 'Username'}! I'm Guideon!",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 21, 77, 113),
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Comfortaa',
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: 28),
+                  // Centered sheep GIF
+                  Image.asset(
+                    'lib/assets/images/Wave.gif',
+                    height: 180,
+                    fit: BoxFit.contain,
                   ),
                 ],
               ),

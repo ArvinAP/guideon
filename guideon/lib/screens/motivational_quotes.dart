@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/daily_tasks_service.dart';
 
 class MotivationalQuotesPage extends StatefulWidget {
@@ -16,15 +18,13 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
 
   final Color textPrimary = const Color(0xFF154D71);
 
-  // Simple local motivational quotes list
-  final List<String> _quotes = const [
-    '"Believe you can and you\'re halfway there."\n— Theodore Roosevelt',
-    '"It always seems impossible until it\'s done."\n— Nelson Mandela',
-    '"Start where you are. Use what you have. Do what you can."\n— Arthur Ashe',
-    '"Small deeds done are better than great deeds planned."\n— Peter Marshall',
-  ];
-
-  String get _todaysQuote => _quotes[DateTime.now().weekday % _quotes.length];
+  // Firestore-backed data
+  List<_MotivItem> _allItems = [];
+  List<_MotivItem> _filteredItems = [];
+  List<String> _themes = const ['All', 'happy', 'neutral', 'excited', 'angry', 'sad'];
+  String _selectedTheme = 'All';
+  int _currentIndex = 0;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
 
   @override
   void initState() {
@@ -33,11 +33,13 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
       vsync: this,
       duration: const Duration(milliseconds: 500),
     );
+    _subscribe();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _sub?.cancel();
     super.dispose();
   }
 
@@ -48,8 +50,74 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
       _controller.forward();
       // Mark quote viewed as a daily task
       DailyTasksService.instance.mark('quoteViewed');
+      if (_filteredItems.isNotEmpty) {
+        final rand = math.Random();
+        int next = _filteredItems.length == 1 ? 0 : rand.nextInt(_filteredItems.length);
+        if (next == _currentIndex && _filteredItems.length > 1) {
+          next = (next + 1) % _filteredItems.length;
+        }
+        setState(() => _currentIndex = next);
+      }
     }
     setState(() => _isFront = !_isFront);
+  }
+
+  void _subscribe() {
+    _sub?.cancel();
+    final q = FirebaseFirestore.instance.collection('quotes');
+    _sub = q.snapshots().listen((snap) {
+      final items = snap.docs.map((d) {
+        final data = d.data();
+        final text = (data['text'] ?? '').toString();
+        final author = (data['author'] ?? '').toString();
+        final themes = _parseThemes(data['themes']);
+        return _MotivItem(text: text, author: author, themes: themes);
+      }).where((e) => e.text.isNotEmpty).toList();
+      setState(() {
+        _allItems = items;
+      });
+      debugPrint('Quotes loaded: ${_allItems.length}');
+      _applyFilter();
+    });
+  }
+
+  void _applyFilter() {
+    final sel = _selectedTheme.toLowerCase().trim();
+    List<_MotivItem> next;
+    if (sel == 'all' || sel.isEmpty) {
+      next = List<_MotivItem>.from(_allItems);
+    } else {
+      next = _allItems.where((e) {
+        final themesLower = e.themes.map((t) => t.toLowerCase().trim());
+        return themesLower.contains(sel);
+      }).toList();
+    }
+    setState(() {
+      _filteredItems = next;
+      _currentIndex = _filteredItems.isEmpty ? 0 : _currentIndex % _filteredItems.length;
+    });
+    debugPrint('Selected theme (quotes): $_selectedTheme | Filtered: ${_filteredItems.length}');
+  }
+
+  List<String> _parseThemes(dynamic raw) {
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    if (raw is String && raw.trim().isNotEmpty) {
+      return raw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return <String>[];
+  }
+
+  String get _currentText {
+    if (_filteredItems.isEmpty) return 'No quotes found for this theme.';
+    final it = _filteredItems[_currentIndex];
+    final author = it.author.isNotEmpty ? '\n— ${it.author}' : '';
+    return '${it.text}$author';
   }
 
   @override
@@ -83,6 +151,50 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
                     fontFamily: 'Coiny',
                   ),
                 ),
+              ),
+            ),
+
+            // Themes dropdown
+            Positioned(
+              top: 56,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedTheme,
+                      icon: const Icon(Icons.keyboard_arrow_down),
+                      items: _themes
+                          .map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val == null) return;
+                        setState(() => _selectedTheme = val);
+                        _applyFilter();
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 56 + 48,
+              left: 16,
+              right: 16,
+              child: Text(
+                'Loaded: ${_allItems.length} • Filtered: ${_filteredItems.length}',
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
               ),
             ),
 
@@ -158,7 +270,7 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
                                           Icon(Icons.format_quote, size: 36, color: textPrimary.withOpacity(0.7)),
                                           const SizedBox(height: 12),
                                           Text(
-                                            _todaysQuote,
+                                            _currentText,
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               color: textPrimary,
@@ -221,4 +333,11 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
       ),
     );
   }
+}
+
+class _MotivItem {
+  final String text;
+  final String author;
+  final List<String> themes;
+  _MotivItem({required this.text, required this.author, required this.themes});
 }
