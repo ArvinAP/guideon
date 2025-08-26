@@ -105,10 +105,12 @@ class _SignUpPageState extends State<SignUpPage> {
       if (!mounted) return;
       // Stop loading before navigation to avoid stuck UI if routing fails
       setState(() => _isLoading = false);
-      if (res.role == 'admin') {
+      if (res.role == 'admin' || res.role == 'super_admin') {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
+          MaterialPageRoute(
+              builder: (_) =>
+                  AdminDashboardPage(loading: false, userRole: res.role)),
           (route) => false,
         );
       } else {

@@ -97,10 +97,12 @@ class _LoginPageState extends State<LoginPage> {
       setState(() => _isLoading = false);
 
       final role = result.profile?['role'] ?? 'user';
-      if (role == 'admin') {
+      if (role == 'admin' || role == 'super_admin') {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const AdminDashboardPage()),
+          MaterialPageRoute(
+              builder: (_) =>
+                  AdminDashboardPage(loading: false, userRole: role)),
           (route) => false,
         );
       } else {

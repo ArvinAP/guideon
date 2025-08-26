@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_users_list.dart';
-import '../services/content_service.dart';
+import 'active_users_list.dart';
 import 'motivational_quotes_page.dart';
 import 'bible_verses_list_page.dart';
 import 'admin_profile.dart';
 
 class AdminDashboardPage extends StatelessWidget {
-  const AdminDashboardPage({super.key});
+  final bool _loading;
+  final String _userRole;
+  const AdminDashboardPage(
+      {super.key, required bool loading, required String userRole})
+      : _loading = loading,
+        _userRole = userRole;
 
   // Streams for live counts from Firestore
   Stream<int> _countUsers() {
@@ -45,6 +50,66 @@ class AdminDashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFEAEFEF),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF154D71)),
+        ),
+      );
+    }
+
+    if (_userRole != 'admin' && _userRole != 'super_admin') {
+      return Scaffold(
+        backgroundColor: const Color(0xFFEAEFEF),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text(
+            'Unauthorized',
+            style: TextStyle(
+              color: Color(0xFF154D71),
+              fontFamily: 'Coiny',
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline,
+                size: 80,
+                color: Color(0xFF154D71),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Access Denied',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF154D71),
+                  fontFamily: 'Coiny',
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Only administrators can access this page.',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontFamily: 'Comfortaa',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAEFEF),
       appBar: AppBar(
@@ -134,12 +199,22 @@ class AdminDashboardPage extends StatelessWidget {
                     );
                   }
                   final val = (snapshot.data ?? 0).toString();
-                  return const _StatCard(
+                  return _StatCard(
                     title: 'Active users today',
-                    value: '',
+                    value: val,
                     subtitle: '- / + vs last 7 days',
-                    bg: Color(0xFFFFE0B2),
-                  ).copyWithValue(val);
+                    bg: const Color(0xFFFFE0B2),
+                    onTap: _userRole == 'super_admin'
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ActiveUsersListPage(),
+                              ),
+                            );
+                          }
+                        : null,
+                  );
                 },
               ),
             ),

@@ -11,6 +11,7 @@ import 'bible_verses.dart';
 import 'motivational_quotes.dart';
 import 'journal_list.dart';
 import 'mood.dart';
+import 'admin_profile.dart';
 
 class DashboardPage extends StatefulWidget {
   final bool suppressAutoChat;
@@ -38,6 +39,7 @@ class _DashboardPageState extends State<DashboardPage> {
   DateTime? _lastAwardedDay;
   bool _chatbotAttemptedToday =
       false; // prevent repeated launches in one session
+  String _userRole = 'user'; // Default to user role
 
   @override
   void initState() {
@@ -53,6 +55,10 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     try {
+      // Get user profile to check role
+      final profileData = await AuthService.getUserProfile(user.uid);
+      final role = profileData?['role'] ?? 'user';
+
       // Get or initialize user progress from Firestore
       Map<String, dynamic>? progressData =
           await AuthService.getUserProgress(user.uid);
@@ -80,6 +86,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
       setState(() {
         userProgress = progress;
+        _userRole = role.toString();
         _updateDailyTasks(progress);
       });
       _scheduleMidnightReset();
@@ -226,11 +233,19 @@ class _DashboardPageState extends State<DashboardPage> {
                   InkWell(
                     borderRadius: BorderRadius.circular(20),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const UserProfilePage()),
-                      );
+                      if (_userRole == 'super_admin') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AdminProfilePage()),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const UserProfilePage()),
+                        );
+                      }
                     },
                     child: Container(
                       width: 40,
@@ -323,7 +338,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       text: TextSpan(
                         children: [
                           TextSpan(
-                            text: '${progress.currentStreak}/${progress.totalDays} ',
+                            text:
+                                '${progress.currentStreak}/${progress.totalDays} ',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.grey,

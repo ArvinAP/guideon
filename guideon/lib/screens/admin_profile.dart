@@ -5,9 +5,23 @@ import 'admin_users_list.dart';
 import 'motivational_quotes_page.dart';
 import 'bible_verses_list_page.dart';
 import 'edit_profile.dart';
+import 'admin_user_progress.dart';
+import 'system_logs.dart';
+import 'admin_dashboard.dart';
+import 'dashboard.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class AdminProfilePage extends StatelessWidget {
+class AdminProfilePage extends StatefulWidget {
   const AdminProfilePage({super.key});
+
+  @override
+  State<AdminProfilePage> createState() => _AdminProfilePageState();
+}
+
+class _AdminProfilePageState extends State<AdminProfilePage> {
+  bool _loading = true;
+  String _role = 'admin';
 
   Future<void> _handleLogout(BuildContext context) async {
     try {
@@ -23,11 +37,42 @@ class AdminProfilePage extends StatelessWidget {
     }
   }
 
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final user = AuthService.currentUser;
+      if (user != null) {
+        final data = await AuthService.getUserProfile(user.uid);
+        setState(() {
+          _role = (data?['role'] ?? 'admin').toString();
+          _loading = false;
+        });
+      } else {
+        setState(() => _loading = false);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const headerColor = Color(0xFF2E7AA1);
     const textPrimary = Color(0xFF154D71);
     const cardBg = Color(0xFFEAEFEF);
+
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: cardBg,
+        body: Center(
+          child: CircularProgressIndicator(color: headerColor),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: cardBg,
@@ -50,14 +95,33 @@ class AdminProfilePage extends StatelessWidget {
                   ),
                 ),
                 alignment: Alignment.center,
-                child: const Text(
-                  'Admin',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Coiny',
-                  ),
+                child: Stack(
+                  children: [
+                    const Center(
+                      child: Text(
+                        'Admin',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Coiny',
+                        ),
+                      ),
+                    ),
+                    if (_role == 'super_admin')
+                      Positioned(
+                        right: 12,
+                        top: 12,
+                        child: Tooltip(
+                          message: 'Go to User side',
+                          child: IconButton(
+                            icon: const Icon(Icons.switch_account,
+                                color: Colors.white),
+                            onPressed: () => _RouteBuilder.userSide(context),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
@@ -126,20 +190,49 @@ class AdminProfilePage extends StatelessWidget {
                     const SizedBox(height: 6),
 
                     _ActionItem(
-                      icon: Icons.group_outlined,
-                      label: 'Manage Users',
-                      routeBuilder: _RouteBuilder.adminUsers,
+                      icon: Icons.trending_up_outlined,
+                      label: 'Track User Progress',
+                      routeBuilder: _RouteBuilder.userProgress,
                     ),
-                    _ActionItem(
-                      icon: Icons.format_quote_outlined,
-                      label: 'Manage Quotes',
-                      routeBuilder: _RouteBuilder.quotes,
-                    ),
-                    _ActionItem(
-                      icon: Icons.menu_book_outlined,
-                      label: 'Manage Verses',
-                      routeBuilder: _RouteBuilder.verses,
-                    ),
+                    const SizedBox(height: 6),
+
+                    // Common admin actions (both admin and super_admin)
+                    if (_role == 'admin' || _role == 'super_admin') ...[
+                      _ActionItem(
+                        icon: Icons.group_outlined,
+                        label: 'Manage Users',
+                        routeBuilder: _RouteBuilder.adminUsers,
+                      ),
+                      _ActionItem(
+                        icon: Icons.format_quote_outlined,
+                        label: 'Manage Quotes',
+                        routeBuilder: _RouteBuilder.quotes,
+                      ),
+                      _ActionItem(
+                        icon: Icons.menu_book_outlined,
+                        label: 'Manage Verses',
+                        routeBuilder: _RouteBuilder.verses,
+                      ),
+                      _ActionItem(
+                        icon: Icons.dashboard_outlined,
+                        label: 'Admin Dashboard',
+                        routeBuilder: _RouteBuilder.adminDashboard,
+                      ),
+                    ],
+
+                    // Super admin only actions
+                    if (_role == 'super_admin') ...[
+                      _ActionItem(
+                        icon: Icons.person_outline,
+                        label: 'User Dashboard',
+                        routeBuilder: _RouteBuilder.userDashboard,
+                      ),
+                      _ActionItem(
+                        icon: Icons.assignment_outlined,
+                        label: 'System Log',
+                        routeBuilder: _RouteBuilder.systemLogs,
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     _ActionItem(
                       icon: Icons.logout,
@@ -167,6 +260,13 @@ class _RouteBuilder {
     );
   }
 
+  static void userProgress(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AdminUserProgressPage()),
+    );
+  }
+
   static void adminUsers(BuildContext context) {
     Navigator.push(
       context,
@@ -185,6 +285,57 @@ class _RouteBuilder {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const BibleVersesListPage()),
+    );
+  }
+
+  static void userSide(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const DashboardPage()),
+    );
+  }
+
+  static void adminDashboard(BuildContext context) async {
+    try {
+      // Get current user's role from Firestore
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        final userRole = userDoc.data()?['role'] ?? 'user';
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  AdminDashboardPage(loading: false, userRole: userRole)),
+        );
+      }
+    } catch (e) {
+      // Fallback to admin if there's an error
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) =>
+                const AdminDashboardPage(loading: false, userRole: 'admin')),
+      );
+    }
+  }
+
+  static void userDashboard(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const DashboardPage()),
+    );
+  }
+
+  static void systemLogs(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SystemLogsPage()),
     );
   }
 }
