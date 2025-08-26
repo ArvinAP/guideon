@@ -13,7 +13,8 @@ import 'journal_list.dart';
 import 'mood.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final bool suppressAutoChat;
+  const DashboardPage({super.key, this.suppressAutoChat = false});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
@@ -68,6 +69,9 @@ class _DashboardPageState extends State<DashboardPage> {
         currentDay: progressData['currentDay'] ?? 1,
         journalEntries: progressData['journalEntries'] ?? 0,
         quotesLiked: progressData['quotesLiked'] ?? 0,
+        petPoints: progressData['petPoints'] ?? 0,
+        petLevel: progressData['petLevel'] ??
+            (((progressData['petPoints'] ?? 0) as int) ~/ 100) + 1,
         lastUpdated: progressData['lastUpdated']?.toDate() ?? DateTime.now(),
         lastTaskDate: progressData['lastTaskDate']?.toDate(),
         lastDailyReset: progressData['lastDailyReset']?.toDate(),
@@ -89,6 +93,8 @@ class _DashboardPageState extends State<DashboardPage> {
         currentDay: 1,
         journalEntries: 0,
         quotesLiked: 0,
+        petPoints: 0,
+        petLevel: 1,
         lastUpdated: DateTime.now(),
       );
       setState(() {
@@ -112,6 +118,8 @@ class _DashboardPageState extends State<DashboardPage> {
       'currentDay': progress.currentDay,
       'journalEntries': progress.journalEntries,
       'quotesLiked': progress.quotesLiked,
+      'petPoints': progress.petPoints,
+      'petLevel': progress.petLevel,
       'lastTaskDate': progress.lastTaskDate,
       'lastDailyReset': progress.lastDailyReset,
       'lastStreakIncrement': progress.lastStreakIncrement,
@@ -303,6 +311,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: isActive ? Colors.white : tileHeaderBlue,
+                                fontFamily: 'Coiny',
                               ),
                             ),
                           ),
@@ -310,13 +319,29 @@ class _DashboardPageState extends State<DashboardPage> {
                       }),
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      '${progress.currentStreak}/${progress.totalDays} DAYS',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.2,
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '${progress.currentStreak}/${progress.totalDays} ',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Coiny',
+                            ),
+                          ),
+                          const TextSpan(
+                            text: 'DAYS',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                              fontFamily: 'Comfortaa',
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -363,12 +388,17 @@ class _DashboardPageState extends State<DashboardPage> {
                         // Increment streak day (max 30) and update week box 1..4
                         final nextStreak = (userProgress!.currentStreak + 1)
                             .clamp(0, userProgress!.totalDays);
+                        // Award pet points (+10) and compute level (every 100)
+                        final nextPoints = userProgress!.petPoints + 10;
+                        final nextLevel = (nextPoints ~/ 100) + 1;
                         final week = ((nextStreak + 6) ~/ 7).clamp(1, 4);
                         if (!mounted) return;
                         setState(() {
                           userProgress = userProgress!.copyWith(
                             currentStreak: nextStreak,
                             currentDay: week,
+                            petPoints: nextPoints,
+                            petLevel: nextLevel,
                             lastStreakIncrement: ymd,
                             lastTaskDate: ymd,
                             lastUpdated: ymd,
@@ -454,6 +484,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                               fontWeight: FontWeight.bold,
                                               fontSize: 16,
                                               height: 1.2,
+                                              fontFamily: 'Comfortaa',
                                             ),
                                           ),
                                         ),
@@ -463,7 +494,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                         Text(
                                           subtitle,
                                           style: const TextStyle(
-                                              color: Colors.black54),
+                                              color: Colors.black54,
+                                              fontFamily: 'Comfortaa'),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
@@ -606,7 +638,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   width: double.infinity,
                   height: 160,
                   decoration: BoxDecoration(
-                    color: cream,
+                    color: const Color.fromARGB(255, 245, 246, 249),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.white, width: 1),
                     boxShadow: const [
@@ -616,10 +648,11 @@ class _DashboardPageState extends State<DashboardPage> {
                           color: tileShadow),
                     ],
                   ),
-                  child: const Center(
-                    child: Text(
-                      '🐑',
-                      style: TextStyle(fontSize: 64),
+                  child: Center(
+                    child: Image.asset(
+                      'lib/assets/pet/streakpet.gif',
+                      height: 120,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ),
@@ -667,6 +700,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _maybeShowDailyChatbot() async {
+    if (widget.suppressAutoChat) return; // skip when explicitly suppressed
     try {
       final nowPh = _manilaNow();
       final shownKey = 'chatbot_last_shown_ymd';

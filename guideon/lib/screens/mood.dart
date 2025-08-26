@@ -50,16 +50,18 @@ class _MoodPageState extends State<MoodPage> {
               ),
             ),
 
-            // Header with sheep and bubble
+            // Header with sheep and bubble (below back button)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: const Color(0xFFFFF9AF),
-                    child: const Text('🐑', style: TextStyle(fontSize: 18)),
+                  // Lamb image
+                  Image.asset(
+                    'lib/assets/images/guideon_lamb.png',
+                    height: 120,
+                    width: 120,
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(width: 10),
                   Container(
@@ -67,7 +69,7 @@ class _MoodPageState extends State<MoodPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: const Color(0xFFDFF7FF),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: const Color.fromARGB(255, 21, 77, 113),
@@ -87,57 +89,58 @@ class _MoodPageState extends State<MoodPage> {
               ),
             ),
 
-            const SizedBox(height: 40),
-
-            // Mood carousel
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_left, size: 32),
-                  onPressed: prev,
-                ),
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: mood.color,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 10,
-                        offset: const Offset(0, 6),
+            // Center the mood carousel and feeling text vertically
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Mood carousel centered in the middle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_left, size: 32),
+                        onPressed: prev,
+                      ),
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: mood.color,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 10,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          mood.emoji,
+                          style: const TextStyle(fontSize: 44),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_right, size: 32),
+                        onPressed: next,
                       ),
                     ],
                   ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    mood.emoji,
-                    style: const TextStyle(fontSize: 40),
+                  const SizedBox(height: 20),
+                  Text(
+                    'I feel ${mood.label}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color.fromARGB(255, 21, 77, 113),
+                      fontFamily: 'Comfortaa',
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_right, size: 32),
-                  onPressed: next,
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-            Center(
-              child: Text(
-                'I feel ${mood.label}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color.fromARGB(255, 21, 77, 113),
-                  fontFamily: 'Comfortaa',
-                ),
+                ],
               ),
             ),
-
-            const Spacer(),
 
             // Continue button
             Padding(

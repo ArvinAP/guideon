@@ -226,6 +226,8 @@ class AuthService {
       'currentDay': 1,
       'journalEntries': 0,
       'quotesLiked': 0,
+      'petPoints': 0,
+      'petLevel': 1,
       'lastTaskDate': null,
       'lastDailyReset': null,
       'lastStreakIncrement': null,

@@ -204,9 +204,9 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                             '${_date.day} ',
                             style: const TextStyle(
                               color: Color(0xFF154D71),
-                              fontFamily: 'Coiny',
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
+                              fontFamily: 'Coiny',
                             ),
                           ),
                           InkWell(
@@ -218,6 +218,7 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                                   style: const TextStyle(
                                     color: Color(0xFF154D71),
                                     fontWeight: FontWeight.w700,
+                                    fontFamily: 'Comfortaa',
                                   ),
                                 ),
                                 const Icon(Icons.arrow_drop_down, color: Color(0xFF154D71)),
@@ -246,7 +247,11 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                           hintText: 'Title',
                           border: InputBorder.none,
                         ),
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 18,
+                          fontFamily: 'Comfortaa',
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextField(
@@ -256,6 +261,10 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                         decoration: const InputDecoration(
                           hintText: 'Write more here...',
                           border: InputBorder.none,
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'Comfortaa',
+                          fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 16),

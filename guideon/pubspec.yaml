@@ -33,6 +33,10 @@ dependencies:
   firebase_core: ^4.0.0
   firebase_auth: ^6.0.1
   cloud_firestore: ^6.0.0
+  cloud_functions: 6.0.0
+  http: ^1.2.2
+  cryptography: ^2.7.0
+  flutter_secure_storage: ^9.2.2
   shared_preferences: ^2.2.2
 
   # The following adds the Cupertino Icons font to your application.
@@ -49,6 +53,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -64,6 +69,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - lib/assets/images/
+    - lib/assets/pet/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -78,3 +84,10 @@ flutter:
     - family: Comfortaa
       fonts:
         - asset: lib/assets/fonts/Comfortaa-VariableFont_wght.ttf
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: lib/assets/images/giudeon_lamb_icon.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: lib/assets/images/giudeon_lamb_icon.png

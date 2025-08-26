@@ -49,9 +49,9 @@ class _JournalListPageState extends State<JournalListPage> {
                         onPressed: () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Journal',
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF154D71),
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
@@ -77,14 +77,28 @@ class _JournalListPageState extends State<JournalListPage> {
                     child: Row(
                       children: [
                         ChoiceChip(
-                          label: const Text('All'),
+                          label: Text(
+                            'All',
+                            style: const TextStyle(
+                              fontFamily: 'Comfortaa',
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
                           selected: !_showDeleted,
                           selectedColor: const Color(0xFFFFF59D),
                           onSelected: (v) => setState(() => _showDeleted = false),
                         ),
                         const SizedBox(width: 8),
                         ChoiceChip(
-                          label: const Text('Recently Deleted'),
+                          label: Text(
+                            'Recently Deleted',
+                            style: const TextStyle(
+                              fontFamily: 'Comfortaa',
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
                           selected: _showDeleted,
                           selectedColor: const Color(0xFFFFF59D),
                           onSelected: (v) => setState(() => _showDeleted = true),
@@ -174,7 +188,7 @@ class _EmptyState extends StatelessWidget {
           onTap: onCreate,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
+            children: [
               CircleAvatar(
                 radius: 26,
                 backgroundColor: Color(0xFFDBF1F5),
@@ -183,11 +197,11 @@ class _EmptyState extends StatelessWidget {
               SizedBox(height: 12),
               Text(
                 'Start Journaling',
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.black45,
-                  fontFamily: 'Coiny',
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
+                  fontFamily: 'Coiny',
                 ),
               ),
             ],
@@ -238,14 +252,18 @@ class _JournalCard extends StatelessWidget {
                 '${date.day} ',
                 style: const TextStyle(
                   color: Color(0xFF154D71),
-                  fontFamily: 'Coiny',
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
+                  fontFamily: 'Coiny',
                 ),
               ),
               Text(
                 _monthYear(date),
-                style: const TextStyle(color: Color(0xFF154D71), fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  color: Color(0xFF154D71),
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Comfortaa',
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -253,6 +271,9 @@ class _JournalCard extends StatelessWidget {
                   entry.title.isEmpty ? 'Title' : entry.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Comfortaa',
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
