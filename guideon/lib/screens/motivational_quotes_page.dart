@@ -49,6 +49,7 @@ class MotivationalQuotesPage extends StatelessWidget {
                     style: const TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.w600,
+                      fontFamily: 'Comfortaa',
                     ),
                   ),
                 ),
@@ -92,6 +93,7 @@ class MotivationalQuotesPage extends StatelessWidget {
                             style: const TextStyle(
                               color: Colors.black87,
                               height: 1.3,
+                              fontFamily: 'Comfortaa',
                             ),
                           ),
                           if (author.isNotEmpty) ...[
@@ -101,6 +103,7 @@ class MotivationalQuotesPage extends StatelessWidget {
                               style: const TextStyle(
                                 color: Color(0xFF0B5D6B), // deep teal accent
                                 fontStyle: FontStyle.italic,
+                                fontFamily: 'Comfortaa',
                               ),
                             ),
                           ],
@@ -238,7 +241,10 @@ class MotivationalQuotesPage extends StatelessWidget {
                                   );
                                 },
                                 icon: const Icon(Icons.edit_outlined, size: 20),
-                                label: const Text('Edit'),
+                                label: const Text(
+                                  'Edit',
+                                  style: TextStyle(fontFamily: 'Comfortaa'),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               TextButton.icon(
@@ -283,7 +289,10 @@ class MotivationalQuotesPage extends StatelessWidget {
                                 },
                                 icon:
                                     const Icon(Icons.delete_outline, size: 20),
-                                label: const Text('Delete'),
+                                label: const Text(
+                                  'Delete',
+                                  style: TextStyle(fontFamily: 'Comfortaa'),
+                                ),
                               ),
                             ],
                           ),

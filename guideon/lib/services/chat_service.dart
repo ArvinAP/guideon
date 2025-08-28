@@ -122,4 +122,59 @@ class ChatService {
       interpretation: (data['interpretation'] as String?) ?? '',
     );
   }
+
+  // Fetch decrypted conversation history via Vercel API (server decrypts).
+  // If ymd is provided, returns that day; else returns recent conversations up to limitDays (default 7).
+  Future<Map<String, dynamic>> fetchHistory({String? ymd, int limitDays = 7}) async {
+    await _ensureSignedIn();
+    final idToken = await _auth.currentUser!.getIdToken();
+
+    final uri = Uri.parse(
+      'https://guideon-vercel.vercel.app/api/generateQuoteInterpretation',
+    );
+
+    final payload = <String, dynamic>{
+      'getHistory': true,
+    };
+    if (ymd != null && ymd.isNotEmpty) {
+      payload['ymd'] = ymd;
+    } else {
+      payload['limitDays'] = limitDays;
+    }
+
+    final resp = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $idToken',
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('Vercel history error ${resp.statusCode}: ${resp.body}');
+    }
+
+    final data = (jsonDecode(resp.body) as Map).cast<String, dynamic>();
+    return data; // { conversations: [ { id, updatedAt, themeLast, messages: [ {role, content, ...} ] } ] }
+  }
+
+  // Convenience: get the latest day's messages (user/assistant only) as a simple list.
+  Future<List<Map<String, String>>> fetchLatestMessages({int lookbackDays = 7}) async {
+    final data = await fetchHistory(limitDays: lookbackDays);
+    final convs = (data['conversations'] as List?) ?? const [];
+    if (convs.isEmpty) return [];
+    final first = (convs.first as Map).cast<String, dynamic>();
+    final msgs = (first['messages'] as List?) ?? const [];
+    final out = <Map<String, String>>[];
+    for (final m in msgs) {
+      final mm = (m as Map).cast<String, dynamic>();
+      final role = (mm['role'] as String?) ?? '';
+      final content = (mm['content'] as String?) ?? '';
+      if (role == 'user' || role == 'assistant') {
+        out.add({'role': role, 'content': content});
+      }
+    }
+    return out;
+  }
 }

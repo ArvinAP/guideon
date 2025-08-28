@@ -26,6 +26,7 @@ class ChatbotPage extends StatefulWidget {
 class _ChatbotPageState extends State<ChatbotPage> {
   final List<ChatMessage> _messages = [];
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
   bool _engaged =
       false; // becomes true after user saves mood/motivation or sends a message
@@ -47,6 +48,81 @@ class _ChatbotPageState extends State<ChatbotPage> {
     return 'Neutral';
   }
 
+  Future<void> _loadHistory() async {
+    try {
+      final latest = await ChatService.instance.fetchLatestMessages(lookbackDays: 7);
+      if (latest.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        // Append loaded messages (user/assistant only). System message stays hidden in UI anyway.
+        for (final m in latest) {
+          final role = m['role'] ?? 'assistant';
+          final content = m['content'] ?? '';
+          _messages.add(ChatMessage(role: role, content: content));
+        }
+      });
+      _scrollToBottom(smooth: false);
+    } catch (_) {
+      // Silently ignore history errors; chat still works.
+    }
+  }
+
+  void _scrollToBottom({bool smooth = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final max = _scrollController.position.maxScrollExtent;
+      if (smooth) {
+        _scrollController.animateTo(
+          max,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(max);
+      }
+    });
+  }
+
+  Widget _typingBubble() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        constraints: const BoxConstraints(maxWidth: 280),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color.fromARGB(255, 21, 77, 113),
+            width: 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(Color.fromARGB(255, 21, 77, 113)),
+              ),
+            ),
+            SizedBox(width: 8),
+            Text(
+              'GuideOn is typing…',
+              style: TextStyle(
+                color: Color.fromARGB(255, 21, 77, 113),
+                fontFamily: 'Comfortaa',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +137,15 @@ class _ChatbotPageState extends State<ChatbotPage> {
       content:
           "Hi ${widget.username ?? 'there'}! I see you're feeling ${widget.mood.toLowerCase()}. Would you like to tell me a bit about what's on your mind?",
     ));
+    // Load previous chats (latest day) and append to thread.
+    _loadHistory();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _controller.dispose();
+    super.dispose();
   }
 
   String _formatQuote({required String text, String? source, String? verse}) {
@@ -100,20 +185,33 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _isSending = true;
       _engaged = true; // user interacted
     });
+    _scrollToBottom();
 
     try {
       final askForQuote = _wantsQuote(text) || !_hasShownQuote;
 
-      // Prepare short history for backend chat mode
-      final history = _messages
-          .where((m) => m.role == 'user' || m.role == 'assistant')
-          .toList()
-          .take(8)
-          .map((m) => {
-                'role': m.role,
-                'content': m.content,
-              })
-          .toList();
+      // Prepare chat history for backend chat mode.
+      // Prepend a system style guide to encourage natural conversation
+      // (avoid asking a question every time; vary responses; be concise and empathetic).
+      final List<Map<String, String>> history = [
+        {
+          'role': 'system',
+          'content':
+              "You are GuideOn, a friendly, empathetic companion. Chat naturally like a person, not a survey."
+              " Keep replies short and supportive. It's OK to respond without a question; only ask at most every 2-3 turns,"
+              " and only if it truly helps move the conversation forward. Offer validation, reflections, and small, practical suggestions."
+              " Avoid repeating the same question format. The user's current mood is '$_selectedMood'.",
+        },
+        ..._messages
+            .where((m) => m.role == 'user' || m.role == 'assistant')
+            .toList()
+            .take(10)
+            .map((m) => {
+                  'role': m.role,
+                  'content': m.content,
+                })
+            .toList(),
+      ];
 
       final result = await ChatService.instance.generateViaVercel(
         theme: _selectedMood.toLowerCase(),
@@ -144,6 +242,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
         }
         _isSending = false;
       });
+      _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -152,6 +251,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
             content: 'Sorry, something went wrong. Please try again later.'));
         _isSending = false;
       });
+      _scrollToBottom();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -161,7 +261,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 234, 239, 239),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -252,9 +352,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
                       const SizedBox(height: 12),
                       Expanded(
                         child: ListView.builder(
-                          itemCount: _messages.length,
+                          controller: _scrollController,
+                          itemCount: _messages.length + (_isSending ? 1 : 0),
                           padding: const EdgeInsets.only(bottom: 12),
                           itemBuilder: (context, i) {
+                            // Trailing typing indicator while waiting for reply
+                            if (_isSending && i == _messages.length) {
+                              return _typingBubble();
+                            }
                             final m = _messages[i];
                             if (m.role == 'system') {
                               return const SizedBox.shrink();
