@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:guideon/services/chat_service.dart';
 import '../components/bottom_nav.dart';
+import '../services/daily_tasks_service.dart';
 import 'dashboard.dart';
 import 'bible_verses.dart';
 import 'motivational_quotes.dart';
@@ -50,7 +51,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   Future<void> _loadHistory() async {
     try {
-      final latest = await ChatService.instance.fetchLatestMessages(lookbackDays: 7);
+      final latest =
+          await ChatService.instance.fetchLatestMessages(lookbackDays: 7);
       if (latest.isEmpty) return;
       if (!mounted) return;
       setState(() {
@@ -106,7 +108,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(Color.fromARGB(255, 21, 77, 113)),
+                valueColor:
+                    AlwaysStoppedAnimation(Color.fromARGB(255, 21, 77, 113)),
               ),
             ),
             SizedBox(width: 8),
@@ -185,6 +188,12 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _isSending = true;
       _engaged = true; // user interacted
     });
+    
+    // Mark tasks as completed when user engages with chatbot
+    if (_engaged) {
+      DailyTasksService.instance.mark('chatbotUsed');
+      DailyTasksService.instance.mark('moodChecked');
+    }
     _scrollToBottom();
 
     try {
@@ -196,8 +205,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       final List<Map<String, String>> history = [
         {
           'role': 'system',
-          'content':
-              "You are GuideOn, a friendly, empathetic companion. Chat naturally like a person, not a survey."
+          'content': "You are GuideOn, a friendly, empathetic companion. Chat naturally like a person, not a survey."
               " Keep replies short and supportive. It's OK to respond without a question; only ask at most every 2-3 turns,"
               " and only if it truly helps move the conversation forward. Offer validation, reflections, and small, practical suggestions."
               " Avoid repeating the same question format. The user's current mood is '$_selectedMood'.",
@@ -270,25 +278,23 @@ class _ChatbotPageState extends State<ChatbotPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) => const DashboardPage(
-                            suppressAutoChat: true,
-                          ),
-                        ),
-                        (route) => false,
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  Chip(
-                    backgroundColor: const Color(0xFFFFF9AF),
-                    label: Text('I feel $_selectedMood'),
-                    labelStyle: const TextStyle(
-                      fontFamily: 'Comfortaa',
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF9AF),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 21, 77, 113),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Text(
+                      'I feel $_selectedMood',
+                      style: const TextStyle(
+                        color: Color.fromARGB(255, 21, 77, 113),
+                        fontFamily: 'Comfortaa',
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -333,20 +339,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
                             },
                           ),
                           const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF9AF),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              'I feel $_selectedMood',
-                              style: const TextStyle(
-                                fontFamily: 'Comfortaa',
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 12),

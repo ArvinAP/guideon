@@ -29,8 +29,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
             ? [first, last].where((e) => e.isNotEmpty).join(' ')
             : fallback;
     _nameCtrl = TextEditingController(text: name);
-    final roleRaw = (widget.data['role'] ?? 'user').toString().toLowerCase();
-    _role = roleRaw == 'admin' ? 'admin' : 'user';
+    _role = 'user';
   }
 
   @override
@@ -75,7 +74,6 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
           '${dt.month.toString().padLeft(2, '0')}/${dt.day.toString().padLeft(2, '0')}/${dt.year}';
     }
 
-    final isActive = (widget.data['active'] ?? true) == true;
 
     return Scaffold(
       appBar: AppBar(
@@ -104,15 +102,16 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Status
+            // User Name Display
             Align(
               alignment: Alignment.center,
               child: Text(
-                isActive ? 'Active' : 'Inactive',
-                style: TextStyle(
-                  color: isActive ? Colors.green : Colors.red,
+                _nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'User Name',
+                style: const TextStyle(
+                  color: Color(0xFF154D71),
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
+                  fontFamily: 'Comfortaa',
                 ),
               ),
             ),
@@ -153,7 +152,6 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
                 value: _role,
                 items: const [
                   DropdownMenuItem(value: 'user', child: Text('user')),
-                  DropdownMenuItem(value: 'admin', child: Text('admin')),
                 ],
                 onChanged: (v) {
                   if (v == null) return;

@@ -132,6 +132,16 @@ class _SignUpPageState extends State<SignUpPage> {
     }
   }
 
+  int _calculateAge(DateTime birthDate) {
+    DateTime today = DateTime.now();
+    int age = today.year - birthDate.year;
+    if (today.month < birthDate.month ||
+        (today.month == birthDate.month && today.day < birthDate.day)) {
+      age--;
+    }
+    return age;
+  }
+
   Future<void> _selectDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
@@ -142,6 +152,10 @@ class _SignUpPageState extends State<SignUpPage> {
     if (picked != null) {
       dateOfBirthController.text =
           "${picked.day}/${picked.month}/${picked.year}";
+      
+      // Auto-calculate and set age
+      int calculatedAge = _calculateAge(picked);
+      ageController.text = calculatedAge.toString();
     }
   }
 
@@ -326,6 +340,7 @@ class _SignUpPageState extends State<SignUpPage> {
               _buildTextField(
                 controller: ageController,
                 hintText: "Age",
+                readOnly: true,
               ),
 
               const SizedBox(height: 20),

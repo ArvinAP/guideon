@@ -5,7 +5,6 @@ import 'admin_users_list.dart';
 import 'motivational_quotes_page.dart';
 import 'bible_verses_list_page.dart';
 import 'edit_profile.dart';
-import 'admin_user_progress.dart';
 import 'system_logs.dart';
 import 'admin_dashboard.dart';
 import 'dashboard.dart';
@@ -189,13 +188,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     ),
                     const SizedBox(height: 6),
 
-                    _ActionItem(
-                      icon: Icons.trending_up_outlined,
-                      label: 'Track User Progress',
-                      routeBuilder: _RouteBuilder.userProgress,
-                    ),
-                    const SizedBox(height: 6),
-
                     // Common admin actions (both admin and super_admin)
                     if (_role == 'admin' || _role == 'super_admin') ...[
                       _ActionItem(
@@ -227,11 +219,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                         label: 'User Dashboard',
                         routeBuilder: _RouteBuilder.userDashboard,
                       ),
-                      _ActionItem(
-                        icon: Icons.assignment_outlined,
-                        label: 'System Log',
-                        routeBuilder: _RouteBuilder.systemLogs,
-                      ),
                     ],
                     const SizedBox(height: 6),
                     _ActionItem(
@@ -257,13 +244,6 @@ class _RouteBuilder {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const EditProfilePage()),
-    );
-  }
-
-  static void userProgress(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AdminUserProgressPage()),
     );
   }
 

@@ -516,13 +516,15 @@ class _DashboardPageState extends State<DashboardPage> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       const SizedBox(height: 6),
-                                      Icon(
-                                        done
-                                            ? Icons.check_circle
-                                            : Icons.radio_button_unchecked,
-                                        color: done
-                                            ? Colors.green[700]
-                                            : Colors.black38,
+                                      Center(
+                                        child: Icon(
+                                          done
+                                              ? Icons.check_circle
+                                              : Icons.radio_button_unchecked,
+                                          color: done
+                                              ? Colors.green[700]
+                                              : Colors.black38,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -537,92 +539,122 @@ class _DashboardPageState extends State<DashboardPage> {
 
                   return Column(
                     children: [
-                      Row(
-                        children: [
-                          tile(
-                            title: 'Write a\nJournal\nentry',
-                            subtitle: '${today.journalCount} today',
-                            done: today.journalDone,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const JournalListPage()),
-                              );
-                            },
-                            gradient: const [Color(0xFFDFF7FF), Colors.white],
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.3),
+                            width: 1.5,
                           ),
-                          const SizedBox(width: 16),
-                          tile(
-                            title: 'Read today\'s\nBible verse',
-                            done: today.bibleRead,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const BibleVersesPage()),
-                              );
-                            },
-                            gradient: const [Color(0xFFD8F1FF), Colors.white],
-                          ),
-                        ],
+                        ),
+                        child: Row(
+                          children: [
+                            tile(
+                              title: 'Write a\nJournal\nentry',
+                              subtitle: '${today.journalCount} today',
+                              done: today.journalDone,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const JournalListPage()),
+                                );
+                              },
+                              gradient: const [Color(0xFFDFF7FF), Colors.white],
+                            ),
+                            const SizedBox(width: 16),
+                            tile(
+                              title: 'Read today\'s\nBible verse',
+                              done: today.bibleRead,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const BibleVersesPage()),
+                                );
+                              },
+                              gradient: const [Color(0xFFD8F1FF), Colors.white],
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          tile(
-                            title: 'View today\'s\nQuote',
-                            done: today.quoteViewed,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const MotivationalQuotesPage()),
-                              );
-                            },
-                            gradient: const [
-                              Color(0xFFD8F1FF),
-                              Color(0xFFFFDDE3)
-                            ],
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.3),
+                            width: 1.5,
                           ),
-                          const SizedBox(width: 16),
-                          tile(
-                            title: 'Visit\nStreak Pet',
-                            done: today.streakPetVisited,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const StreakPetPage()),
-                              );
-                            },
-                            gradient: const [Color(0xFFFFF0E6), Colors.white],
-                          ),
-                        ],
+                        ),
+                        child: Row(
+                          children: [
+                            tile(
+                              title: 'View today\'s\nQuote',
+                              done: today.quoteViewed,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const MotivationalQuotesPage()),
+                                );
+                              },
+                              gradient: const [
+                                Color(0xFFD8F1FF),
+                                Color(0xFFFFDDE3)
+                              ],
+                            ),
+                            const SizedBox(width: 16),
+                            tile(
+                              title: 'Visit\nStreak Pet',
+                              done: today.streakPetVisited,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const StreakPetPage()),
+                                );
+                              },
+                              gradient: const [Color(0xFFFFF0E6), Colors.white],
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          tile(
-                            title: 'Use\nChatbot',
-                            done: today.chatbotUsed,
-                            onTap: _openMoodChatFlow,
-                            gradient: const [Color(0xFFDFF7FF), Colors.white],
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.grey.withOpacity(0.3),
+                            width: 1.5,
                           ),
-                          const SizedBox(width: 16),
-                          tile(
-                            title: 'Check\nMood',
-                            done: today.moodChecked,
-                            onTap: () {
-                              DailyTasksService.instance.mark('moodChecked');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Mood checked!')),
-                              );
-                            },
-                            gradient: const [Color(0xFFDFF7FF), Colors.white],
-                          ),
-                        ],
+                        ),
+                        child: Row(
+                          children: [
+                            tile(
+                              title: 'Use\nChatbot',
+                              done: today.chatbotUsed,
+                              onTap: _openMoodChatFlow,
+                              gradient: const [Color(0xFFDFF7FF), Colors.white],
+                            ),
+                            const SizedBox(width: 16),
+                            tile(
+                              title: 'Check\nMood',
+                              done: today.moodChecked,
+                              onTap: () {
+                                DailyTasksService.instance.mark('moodChecked');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Mood checked!')),
+                                );
+                              },
+                              gradient: const [Color(0xFFDFF7FF), Colors.white],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   );
