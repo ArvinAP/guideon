@@ -66,6 +66,14 @@ class _SystemLogsPageState extends State<SystemLogsPage>
                       indicatorColor: Colors.white,
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white70,
+                      labelStyle: const TextStyle(
+                        fontFamily: 'Comfortaa',
+                        fontWeight: FontWeight.w700,
+                      ),
+                      unselectedLabelStyle: const TextStyle(
+                        fontFamily: 'Comfortaa',
+                        fontWeight: FontWeight.w600,
+                      ),
                       tabs: const [
                         Tab(
                           icon: Icon(Icons.person_outline),

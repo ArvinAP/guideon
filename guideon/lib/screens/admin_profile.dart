@@ -177,7 +177,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                         color: textPrimary,
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
-                        fontFamily: 'Comfortaa',
+                        fontFamily: 'Coiny',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -374,6 +374,7 @@ class _ActionItem extends StatelessWidget {
           style: TextStyle(
             color: fg,
             fontWeight: FontWeight.w700,
+            fontFamily: 'Comfortaa',
           ),
         ),
         trailing: Icon(Icons.arrow_forward_ios, color: fg, size: 16),

@@ -73,9 +73,15 @@ class AdminUsersListPage extends StatelessWidget {
                   style: const TextStyle(
                     color: Color(0xFF154D71),
                     fontWeight: FontWeight.w700,
+                    fontFamily: 'Comfortaa',
                   ),
                 ),
-                subtitle: Text(subtitle),
+                subtitle: Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontFamily: 'Comfortaa',
+                  ),
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.of(context).push(

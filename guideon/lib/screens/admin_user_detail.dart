@@ -143,6 +143,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
                 child: TextField(
                     readOnly: true,
                     controller: _nameCtrl,
+                    style: const TextStyle(fontFamily: 'Comfortaa'),
                     decoration: _inputDecoration('Name'))),
             const SizedBox(height: 16),
 
@@ -168,6 +169,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
                 child: TextField(
                     readOnly: true,
                     controller: TextEditingController(text: email),
+                    style: const TextStyle(fontFamily: 'Comfortaa'),
                     decoration: _inputDecoration('Email'))),
             const SizedBox(height: 16),
 
@@ -177,6 +179,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
                     readOnly: true,
                     controller: TextEditingController(
                         text: dob.isEmpty ? '00/00/0000' : dob),
+                    style: const TextStyle(fontFamily: 'Comfortaa'),
                     decoration: _inputDecoration('Date of Birth'))),
             const SizedBox(height: 16),
 
@@ -187,6 +190,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
                     controller: TextEditingController(
                         text:
                             createdAtStr.isEmpty ? '00/00/0000' : createdAtStr),
+                    style: const TextStyle(fontFamily: 'Comfortaa'),
                     decoration: _inputDecoration('Date Registered'))),
             const SizedBox(height: 24),
 
@@ -200,7 +204,10 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
               ),
-              label: const Text('Save Changes'),
+              label: const Text(
+                'Save Changes',
+                style: TextStyle(fontFamily: 'Coiny'),
+              ),
             ),
           ],
         ),
@@ -221,6 +228,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
           style: const TextStyle(
             color: Color(0xFF154D71),
             fontWeight: FontWeight.w700,
+            fontFamily: 'Comfortaa',
           ),
         ),
       );

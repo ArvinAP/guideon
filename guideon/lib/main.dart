@@ -21,7 +21,8 @@ class MyApp extends StatelessWidget {
       title: 'GuideOn',
       theme: ThemeData(
         colorScheme:
-            ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 234, 239, 239)),
+            ColorScheme.fromSeed(seedColor: Color.fromARGB(255, 255, 249, 237)),
+        scaffoldBackgroundColor: const Color(0xFFFFF9ED),
         useMaterial3: true,
       ),
       home: const SplashPage(),

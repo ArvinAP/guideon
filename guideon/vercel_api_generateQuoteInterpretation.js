@@ -15,6 +15,7 @@
 //   CORS_ORIGIN=*          (optional; set to your app origin in prod)
 
 import admin from 'firebase-admin';
+import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 
 const REQUIRE_AUTH = (process.env.REQUIRE_AUTH ?? 'true').toLowerCase() !== 'false';
 const ALLOWED_ORIGIN = process.env.CORS_ORIGIN || '*';
@@ -24,6 +25,85 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
+
+// --- Conversation persistence ----------------------------------------------
+function yyyymmddUtc() {
+  const d = new Date();
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+async function saveTurn({ db, uid, theme, userMessage, assistantMessage, mode }) {
+  try {
+    const ymd = yyyymmddUtc();
+    const ref = db
+      .collection('users')
+      .doc(uid)
+      .collection('conversations')
+      .doc(ymd);
+
+    // Use a concrete Timestamp for array elements (sentinels are not allowed inside arrays)
+    const ts = admin.firestore.Timestamp.now();
+
+    // Optional AES-256-GCM encryption ---------------------------------------
+    function getEncKey() {
+      const b64 = process.env.CONVO_ENC_KEY_B64 || '';
+      if (!b64) return null;
+      try {
+        const buf = Buffer.from(b64, 'base64');
+        if (buf.length !== 32) {
+          console.error('CONVO_ENC_KEY_B64 must be 32 bytes (base64). Got', buf.length);
+          return null;
+        }
+        return buf;
+      } catch (e) {
+        console.error('Invalid CONVO_ENC_KEY_B64:', e);
+        return null;
+      }
+    }
+
+    function encrypt(text) {
+      const key = getEncKey();
+      if (!key) return null; // no encryption
+      const iv = randomBytes(12);
+      const cipher = createCipheriv('aes-256-gcm', key, iv);
+      const enc = Buffer.concat([cipher.update(String(text), 'utf8'), cipher.final()]);
+      const tag = cipher.getAuthTag();
+      const payload = Buffer.concat([enc, tag]).toString('base64');
+      return { cipher: payload, nonce: iv.toString('base64') };
+    }
+
+    const userEnc = encrypt(userMessage);
+    const asstEnc = encrypt(assistantMessage);
+
+    const userObj = userEnc
+      ? { role: 'user', cipher: userEnc.cipher, nonce: userEnc.nonce, ts, mode, theme }
+      : { role: 'user', content: String(userMessage || ''), ts, mode, theme };
+
+    const asstObj = asstEnc
+      ? { role: 'assistant', cipher: asstEnc.cipher, nonce: asstEnc.nonce, ts, mode, theme }
+      : { role: 'assistant', content: String(assistantMessage || ''), ts, mode, theme };
+
+    const turn = [userObj, asstObj];
+
+    await ref.set(
+      {
+        userId: uid,
+        ymd,
+        // It's fine to use serverTimestamp at top-level fields
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        themeLast: String(theme || ''),
+        messages: admin.firestore.FieldValue.arrayUnion(...turn),
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error('saveTurn error:', e);
+    // Do not throw; persistence failures shouldn't break replies
+  }
 }
 
 function initAdmin() {
@@ -107,10 +187,10 @@ function buildChatMessagesForQuote({ theme, message, quote }) {
 }
 
 function buildChatMessagesForConversation({ theme, history = [], message }) {
-  const sys = `You are GuideOn, an empathetic, concise companion. The user's mood is ${theme}. Respond briefly (1-3 sentences), validate feelings, and ask ONE gentle follow-up. Do NOT provide a quote unless explicitly asked.`;
+  const sys = `You are GuideOn, a friendly, empathetic companion. The user's mood is ${theme}. Speak naturally in 1–3 sentences. Validate feelings, reflect key points, and offer a small, practical suggestion when helpful. Do not end every message with a question. Ask a gentle follow-up only occasionally (about every 2–3 turns) and only if it clearly moves the conversation forward. Vary your wording and avoid repetitive prompts. Do NOT include a quote or Bible verse unless explicitly asked.`;
   const messages = [{ role: 'system', content: sys }];
   // History should be an array of { role: 'user'|'assistant', content: string }
-  for (const m of history.slice(-8)) {
+  for (const m of history.slice(-10)) {
     if (!m || !m.role || !m.content) continue;
     const role = m.role === 'assistant' ? 'assistant' : 'user';
     messages.push({ role, content: String(m.content).slice(0, 2000) });
@@ -164,7 +244,77 @@ export default async function handler(req, res) {
   try {
     initAdmin();
     const decoded = await verifyIdToken(req);
-    const { theme, message, askForQuote, askForVerse, history } = req.body || {};
+    const { theme, message, askForQuote, askForVerse, history, getHistory, ymd, limitDays } = req.body || {};
+
+    // --- History fetch (decrypt on the fly) ---------------------------------
+    if (getHistory) {
+      const keyB64 = process.env.CONVO_ENC_KEY_B64 || '';
+      const hasKey = !!keyB64;
+      const db = admin.firestore();
+
+      function getEncKey() {
+        try {
+          const buf = Buffer.from(keyB64, 'base64');
+          return buf.length === 32 ? buf : null;
+        } catch {
+          return null;
+        }
+      }
+      function decryptItem(cipherB64, nonceB64) {
+        const key = getEncKey();
+        if (!key || !cipherB64 || !nonceB64) return null;
+        try {
+          const buf = Buffer.from(cipherB64, 'base64');
+          const data = buf.subarray(0, buf.length - 16);
+          const tag = buf.subarray(buf.length - 16);
+          const iv = Buffer.from(nonceB64, 'base64');
+          const decipher = createDecipheriv('aes-256-gcm', key, iv);
+          decipher.setAuthTag(tag);
+          const dec = Buffer.concat([decipher.update(data), decipher.final()]);
+          return dec.toString('utf8');
+        } catch (e) {
+          console.error('decryptItem error:', e);
+          return null;
+        }
+      }
+
+      const uid = decoded.uid;
+      const convCol = db.collection('users').doc(uid).collection('conversations');
+      let docs = [];
+      if (ymd) {
+        const snap = await convCol.doc(String(ymd)).get();
+        if (snap.exists) docs = [snap];
+      } else {
+        const lim = Math.max(1, Math.min(30, Number(limitDays) || 7));
+        const q = await convCol.orderBy('updatedAt', 'desc').limit(lim).get();
+        docs = q.docs;
+      }
+
+      const out = docs.map((d) => {
+        const data = d.data() || {};
+        const msgs = Array.isArray(data.messages) ? data.messages : [];
+        const mapped = msgs.map((m) => {
+          const base = {
+            role: m.role || 'assistant',
+            mode: m.mode || 'chat',
+            theme: m.theme || (theme ?? ''),
+            ts: m.ts || null,
+          };
+          if (m.cipher && m.nonce && hasKey) {
+            const content = decryptItem(m.cipher, m.nonce) || '';
+            return { ...base, content, encrypted: true };
+          }
+          return { ...base, content: String(m.content || ''), encrypted: false };
+        });
+        return {
+          id: d.id,
+          updatedAt: data.updatedAt || null,
+          themeLast: data.themeLast || '',
+          messages: mapped,
+        };
+      });
+      return res.status(200).json({ conversations: out });
+    }
 
     if (!theme || !message) {
       return res.status(400).json({ error: 'Missing theme or message' });
@@ -184,6 +334,7 @@ export default async function handler(req, res) {
         interpretation = FALLBACK_REPLY;
       }
       if (!interpretation) interpretation = FALLBACK_REPLY;
+      await saveTurn({ db, uid: decoded.uid, theme, userMessage: message, assistantMessage: interpretation, mode: 'verse' });
       return res.status(200).json({ verse, interpretation });
     }
 
@@ -199,6 +350,7 @@ export default async function handler(req, res) {
         interpretation = FALLBACK_REPLY;
       }
       if (!interpretation) interpretation = FALLBACK_REPLY;
+      await saveTurn({ db, uid: decoded.uid, theme, userMessage: message, assistantMessage: interpretation, mode: 'quote' });
       return res.status(200).json({ quote, interpretation });
     }
 
@@ -211,6 +363,7 @@ export default async function handler(req, res) {
       reply = FALLBACK_REPLY;
     }
     if (!reply) reply = FALLBACK_REPLY;
+    await saveTurn({ db, uid: decoded.uid, theme, userMessage: message, assistantMessage: reply, mode: 'chat' });
     return res.status(200).json({ reply });
   } catch (e) {
     const status = e.status || 500;
