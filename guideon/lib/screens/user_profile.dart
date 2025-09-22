@@ -269,16 +269,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
                         );
                       },
                     ),
-                    _ActionItem(
-                      icon: Icons.switch_account_outlined,
-                      label: 'Switch Account',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginPage()),
-                        );
-                      },
-                    ),
 
                     const SizedBox(height: 6),
 
@@ -331,6 +321,7 @@ class _ActionItem extends StatelessWidget {
           style: TextStyle(
             color: fg,
             fontWeight: FontWeight.w700,
+            fontFamily: 'Comfortaa',
           ),
         ),
         trailing: Icon(Icons.arrow_forward_ios, color: fg, size: 16),

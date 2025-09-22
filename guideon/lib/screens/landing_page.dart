@@ -22,9 +22,13 @@ class LandingPage extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
-                children: const [
-                  SizedBox(height: 20),
-                  Text(
+                children: [
+                  Image.asset(
+                    'lib/assets/images/guideon_lamb.png',
+                    width: 240,
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
                     'GuideOn',
                     style: TextStyle(
                       fontSize: 32,
@@ -33,8 +37,8 @@ class LandingPage extends StatelessWidget {
                       fontFamily: 'Coiny',
                     ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
+                  const SizedBox(height: 8),
+                  const Text(
                     'No Judgement, just Guideon',
                     style: TextStyle(
                       fontSize: 14,
