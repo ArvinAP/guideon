@@ -5,7 +5,6 @@ import 'package:guideon/components/buttons.dart';
 import 'package:guideon/screens/signup_page.dart';
 import 'package:guideon/screens/admin_dashboard.dart';
 import 'package:guideon/services/auth_service.dart';
-import 'package:guideon/screens/dashboard.dart';
 import 'package:guideon/screens/greeting_page.dart';
 
 class LoginPage extends StatefulWidget {

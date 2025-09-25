@@ -30,8 +30,6 @@ class _DashboardPageState extends State<DashboardPage> {
   static const Color streakPanel = Color(0xFFDBF1F5); // streak panel bg
   static const Color tileHeaderBlue = Color(0xFF2E6286); // tile top cap
   static const Color tileShadow = Color(0x33000000); // 20% black
-  static const Color quotePink = Color(0xFFFFC4C9); // light pink
-  static const Color cream = Color(0xFFFFF3E9); // streak pet panel
 
   UserProgress? userProgress;
   List<DailyTask> dailyTasks = [];
@@ -299,9 +297,6 @@ class _DashboardPageState extends State<DashboardPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: List.generate(4, (index) {
-                        final derivedWeek =
-                            ((progress.currentStreak + 6) ~/ 7).clamp(0, 4);
-                        bool isActive = index < derivedWeek;
                         return Container(
                           width: 56,
                           height: 56,
@@ -381,7 +376,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 stream: DailyTasksService.instance.watchToday(),
                 builder: (context, snapshot) {
                   final today = snapshot.data ?? DailyTasks.empty('');
-
                   // Auto-award 1 day when all daily tasks are completed for the day
                   final now = DateTime.now();
                   final ymd = DateTime(now.year, now.month, now.day);
@@ -714,23 +708,19 @@ class _DashboardPageState extends State<DashboardPage> {
       bottomNavigationBar: GuideOnBottomNav(
         currentIndex: -1, // No specific tab active on dashboard
         onItemSelected: (i) {
-          // TODO: Implement proper navigation to each section
           if (i == 0) {
             _openMoodChatFlow();
           } else if (i == 1) {
-            // Navigate to Bible Verses
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const BibleVersesPage()),
             );
           } else if (i == 2) {
-            // Navigate to Motivational Quotes
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MotivationalQuotesPage()),
             );
           } else if (i == 3) {
-            // Navigate to Journal list
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const JournalListPage()),

@@ -13,7 +13,6 @@ class UserProfilePage extends StatefulWidget {
 }
 
 class _UserProfilePageState extends State<UserProfilePage> {
-
   Map<String, dynamic>? userProfile;
   User? currentUser;
   bool isLoading = true;
