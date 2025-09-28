@@ -4,7 +4,8 @@ import '../services/journal_repository.dart';
 import 'journal_editor.dart';
 
 class JournalListPage extends StatefulWidget {
-  const JournalListPage({super.key});
+  final bool showDeletedInitially;
+  const JournalListPage({super.key, this.showDeletedInitially = false});
 
   @override
   State<JournalListPage> createState() => _JournalListPageState();
@@ -16,6 +17,8 @@ class _JournalListPageState extends State<JournalListPage> {
   @override
   void initState() {
     super.initState();
+    // Set initial state based on parameter
+    _showDeleted = widget.showDeletedInitially;
     // Start Firestore listener
     JournalRepository.instance.init();
   }
@@ -31,7 +34,7 @@ class _JournalListPageState extends State<JournalListPage> {
     final repo = JournalRepository.instance;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED), // Match dashboard background
       body: SafeArea(
         child: AnimatedBuilder(
           animation: repo,
@@ -52,65 +55,69 @@ class _JournalListPageState extends State<JournalListPage> {
                       Text(
                         'Journal',
                         style: const TextStyle(
-                          color: Color(0xFF154D71),
+                          color: Color(0xFFF4A100), // Orange color to match design
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           fontFamily: 'Coiny',
                         ),
                       ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.more_horiz, color: Colors.black54),
-                        onPressed: () {},
-                      ),
                     ],
                   ),
                 ),
 
-                // Filter chips
-                Positioned(
-                  top: 56,
-                  left: 0,
-                  right: 0,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: [
-                        ChoiceChip(
-                          label: Text(
-                            'All',
-                            style: const TextStyle(
-                              fontFamily: 'Comfortaa',
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
+                // Filter chips - only show when there are entries
+                if (repo.entries.isNotEmpty || repo.recentlyDeleted.isNotEmpty)
+                  Positioned(
+                    top: 56,
+                    left: 0,
+                    right: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          ChoiceChip(
+                            label: Text(
+                              'All',
+                              style: const TextStyle(
+                                fontFamily: 'Comfortaa',
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                                fontSize: 14,
+                              ),
                             ),
+                            selected: !_showDeleted,
+                            selectedColor: const Color(0xFFFFF59D), // Yellow/cream color
+                            backgroundColor: Colors.white,
+                            side: BorderSide.none,
+                            onSelected: (v) => setState(() => _showDeleted = false),
                           ),
-                          selected: !_showDeleted,
-                          selectedColor: const Color(0xFFFFF59D),
-                          onSelected: (v) => setState(() => _showDeleted = false),
-                        ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: Text(
-                            'Recently Deleted',
-                            style: const TextStyle(
-                              fontFamily: 'Comfortaa',
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black87,
+                          const SizedBox(width: 8),
+                          ChoiceChip(
+                            label: Text(
+                              'Recently Deleted',
+                              style: const TextStyle(
+                                fontFamily: 'Comfortaa',
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                                fontSize: 14,
+                              ),
                             ),
+                            selected: _showDeleted,
+                            selectedColor: const Color(0xFFFFF59D), // Yellow/cream color
+                            backgroundColor: Colors.white,
+                            side: BorderSide.none,
+                            onSelected: (v) => setState(() => _showDeleted = true),
                           ),
-                          selected: _showDeleted,
-                          selectedColor: const Color(0xFFFFF59D),
-                          onSelected: (v) => setState(() => _showDeleted = true),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
                 // Content list or empty state
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 100, 16, 80),
+                  padding: list.isEmpty 
+                      ? const EdgeInsets.fromLTRB(16, 70, 16, 16) // Less top padding for empty state
+                      : const EdgeInsets.fromLTRB(16, 100, 16, 80), // Normal padding for list
                   child: list.isEmpty
                       ? _EmptyState(onCreate: _openCreate)
                       : ListView.separated(
@@ -128,17 +135,18 @@ class _JournalListPageState extends State<JournalListPage> {
                         ),
                 ),
 
-                // Add button
-                Positioned(
-                  right: 24,
-                  bottom: 24,
-                  child: FloatingActionButton(
-                    onPressed: _openCreate,
-                    backgroundColor: const Color(0xFFDBF1F5),
-                    foregroundColor: const Color(0xFF154D71),
-                    child: const Icon(Icons.edit_note),
+                // Add button - only show when there are entries
+                if (repo.entries.isNotEmpty || repo.recentlyDeleted.isNotEmpty)
+                  Positioned(
+                    right: 24,
+                    bottom: 24,
+                    child: FloatingActionButton(
+                      onPressed: _openCreate,
+                      backgroundColor: const Color(0xFF2EC4B6), // Teal color to match design
+                      foregroundColor: Colors.white,
+                      child: const Icon(Icons.add, size: 28),
+                    ),
                   ),
-                ),
               ],
             );
           },
@@ -169,44 +177,45 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
-            )
-          ],
-        ),
-        width: double.infinity,
-        height: 350,
-        child: InkWell(
-          onTap: onCreate,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Color(0xFFDBF1F5),
-                child: Icon(Icons.add, color: Color(0xFF154D71)),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Circular icon with plus sign
+          GestureDetector(
+            onTap: onCreate,
+            child: Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2EC4B6), // Teal color
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              SizedBox(height: 12),
-              Text(
-                'Start Journaling',
-                style: const TextStyle(
-                  color: Colors.black45,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Coiny',
-                ),
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 32,
               ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 20),
+          // "Start Journaling" text
+          Text(
+            'Start Journaling',
+            style: const TextStyle(
+              color: Colors.grey, // Gray color as shown in design
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Comfortaa',
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -231,68 +240,78 @@ class _JournalCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               )
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${date.day} ',
-                style: const TextStyle(
-                  color: Color(0xFF154D71),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Coiny',
-                ),
+              // Date section with large teal number
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '${date.day}',
+                    style: const TextStyle(
+                      color: Color(0xFF2EC4B6), // Teal color for date
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'Coiny',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _monthYear(date),
+                    style: const TextStyle(
+                      color: Color(0xFF2EC4B6), // Teal color for month/year
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Comfortaa',
+                    ),
+                  ),
+                  const Spacer(),
+                  // Action buttons (delete/restore) if needed
+                  if (onDelete != null || onRestore != null) ...[
+                    if (onDelete != null)
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: Colors.redAccent,
+                        onPressed: onDelete,
+                      ),
+                    if (onRestore != null)
+                      IconButton(
+                        icon: const Icon(Icons.restore, size: 20),
+                        color: Colors.green,
+                        onPressed: onRestore,
+                      ),
+                  ]
+                ],
               ),
+              const SizedBox(height: 12),
+              // Title section
               Text(
-                _monthYear(date),
+                entry.title.isEmpty ? 'Title' : entry.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF154D71),
-                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                   fontFamily: 'Comfortaa',
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  entry.title.isEmpty ? 'Title' : entry.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: 'Comfortaa',
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(entry.moodEmoji, style: const TextStyle(fontSize: 18)),
-              if (onDelete != null || onRestore != null) ...[
-                const SizedBox(width: 8),
-                if (onDelete != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    color: Colors.redAccent,
-                    onPressed: onDelete,
-                  ),
-                if (onRestore != null)
-                  IconButton(
-                    icon: const Icon(Icons.restore, size: 20),
-                    color: Colors.green,
-                    onPressed: onRestore,
-                  ),
-              ]
             ],
           ),
         ),

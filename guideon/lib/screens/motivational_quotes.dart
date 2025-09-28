@@ -16,15 +16,17 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
   late final AnimationController _controller;
   bool _isFront = false; // false = back image showing, true = front showing
 
+  final Color headerColor = const Color(0xFF2E7AA1);
   final Color textPrimary = const Color(0xFF154D71);
 
   // Firestore-backed data
-  List<_MotivItem> _allItems = [];
   List<_MotivItem> _filteredItems = [];
   List<String> _themes = const ['All', 'happy', 'neutral', 'excited', 'angry', 'sad'];
   String _selectedTheme = 'All';
   int _currentIndex = 0;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -44,13 +46,20 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
   }
 
   void _toggleCard() {
+    // If there's an error, retry loading
+    if (_errorMessage != null) {
+      _subscribe();
+      return;
+    }
+    
     if (_isFront) {
       _controller.reverse();
     } else {
       _controller.forward();
-      // Mark quote viewed as a daily task
-      DailyTasksService.instance.mark('quoteViewed');
+      // Mark quote viewed as a daily task only if we have quotes
       if (_filteredItems.isNotEmpty) {
+        DailyTasksService.instance.mark('quoteViewed');
+        // advance to another quote within the filtered theme
         final rand = math.Random();
         int next = _filteredItems.length == 1 ? 0 : rand.nextInt(_filteredItems.length);
         if (next == _currentIndex && _filteredItems.length > 1) {
@@ -64,40 +73,82 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
 
   void _subscribe() {
     _sub?.cancel();
-    final q = FirebaseFirestore.instance.collection('quotes');
-    _sub = q.snapshots().listen((snap) {
-      final items = snap.docs.map((d) {
-        final data = d.data();
-        final text = (data['text'] ?? '').toString();
-        final author = (data['author'] ?? '').toString();
-        final themes = _parseThemes(data['themes']);
-        return _MotivItem(text: text, author: author, themes: themes);
-      }).where((e) => e.text.isNotEmpty).toList();
-      setState(() {
-        _allItems = items;
-      });
-      debugPrint('Quotes loaded: ${_allItems.length}');
-      _applyFilter();
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    final sel = _selectedTheme.trim();
+    final selLower = sel.toLowerCase();
+    
+    try {
+      Query<Map<String, dynamic>> q = FirebaseFirestore.instance.collection('quotes');
+      
+      // Improved query logic for theme filtering
+      if (selLower != 'all' && selLower.isNotEmpty) {
+        // Try multiple variations of the theme for better matching
+        final variations = [
+          selLower,                                           // lowercase: "happy"
+          selLower[0].toUpperCase() + selLower.substring(1), // Capitalized: "Happy"
+          selLower.toUpperCase(),                            // All caps: "HAPPY"
+        ];
+        q = q.where('themes', arrayContainsAny: variations);
+        debugPrint('Filtering quotes for theme variations: $variations');
+      }
+      
+      _sub = q.snapshots().listen(
+        (snap) {
+          try {
+            final items = snap.docs.map((d) {
+              final data = d.data();
+              final text = (data['text'] ?? '').toString().trim();
+              final author = (data['author'] ?? '').toString().trim();
+              final themes = _parseThemes(data['themes']);
+              
+              // Only include quotes with actual text content
+              if (text.isEmpty) return null;
+              
+              return _MotivItem(text: text, author: author, themes: themes);
+            }).where((e) => e != null).cast<_MotivItem>().toList();
+
+            setState(() {
+              _filteredItems = items;
+              _currentIndex = _filteredItems.isEmpty ? 0 : _currentIndex % _filteredItems.length;
+              _isLoading = false;
+              _errorMessage = null;
+            });
+            
+            debugPrint('Quotes loaded: ${_filteredItems.length} for theme "$selLower"');
+            
+            // Don't fallback to all quotes - keep the filter strict
+            if (_filteredItems.isEmpty && selLower != 'all') {
+              debugPrint('No quotes found for theme "$selLower". Try a different theme or check your database.');
+            }
+          } catch (e) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'Error processing quotes: ${e.toString()}';
+            });
+            debugPrint('Error processing quotes: $e');
+          }
+        },
+        onError: (error) {
+          debugPrint('Firestore error: $error');
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Failed to load quotes from database: ${error.toString()}';
+          });
+        },
+      );
+    } catch (e) {
+      debugPrint('Connection error: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Connection error: ${e.toString()}';
+      });
+    }
   }
 
-  void _applyFilter() {
-    final sel = _selectedTheme.toLowerCase().trim();
-    List<_MotivItem> next;
-    if (sel == 'all' || sel.isEmpty) {
-      next = List<_MotivItem>.from(_allItems);
-    } else {
-      next = _allItems.where((e) {
-        final themesLower = e.themes.map((t) => t.toLowerCase().trim());
-        return themesLower.contains(sel);
-      }).toList();
-    }
-    setState(() {
-      _filteredItems = next;
-      _currentIndex = _filteredItems.isEmpty ? 0 : _currentIndex % _filteredItems.length;
-    });
-    debugPrint('Selected theme (quotes): $_selectedTheme | Filtered: ${_filteredItems.length}');
-  }
 
   List<String> _parseThemes(dynamic raw) {
     if (raw is List) {
@@ -114,16 +165,25 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
   }
 
   String get _currentText {
-    if (_filteredItems.isEmpty) return 'No quotes found for this theme.';
+    if (_isLoading) return 'Loading quotes...';
+    if (_errorMessage != null) return 'Error: $_errorMessage\n\nTap to retry.';
+    if (_filteredItems.isEmpty) {
+      if (_selectedTheme.toLowerCase() == 'all') {
+        return 'No quotes found in database.\n\nPlease add some quotes through the admin panel.';
+      } else {
+        return 'No quotes found for "$_selectedTheme".\n\nTry selecting "All" or a different feeling.';
+      }
+    }
+    
     final it = _filteredItems[_currentIndex];
-    final author = it.author.isNotEmpty ? '\n— ${it.author}' : '';
+    final author = it.author.isNotEmpty ? '\n\n— ${it.author}' : '';
     return '${it.text}$author';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED), // Cream background to match design
       body: SafeArea(
         child: Stack(
           children: [
@@ -143,12 +203,14 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
               child: Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'Motivational',
+                  'Motivational\nquotes',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Color(0xFF154D71),
+                    color: Color(0xFFF4A100), // Orange color to match design
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     fontFamily: 'Coiny',
+                    height: 1.1, // Tighter line spacing
                   ),
                 ),
               ),
@@ -156,7 +218,7 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
 
             // Themes dropdown
             Positioned(
-              top: 56,
+              top: 90,
               left: 16,
               right: 16,
               child: Container(
@@ -166,42 +228,52 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedTheme,
-                      icon: const Icon(Icons.keyboard_arrow_down),
-                      items: _themes
-                          .map((t) => DropdownMenuItem(
-                                value: t,
-                                child: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val == null) return;
-                        setState(() => _selectedTheme = val);
-                        _applyFilter();
-                      },
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedTheme,
+                          icon: const Icon(Icons.keyboard_arrow_down),
+                          items: _themes
+                              .map((t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                                  ))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val == null) return;
+                            setState(() => _selectedTheme = val);
+                            _subscribe();
+                          },
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 6),
+                    // Status indicator
+                    Text(
+                      _isLoading 
+                          ? 'Loading...' 
+                          : _errorMessage != null 
+                              ? 'Error - Tap card to retry'
+                              : 'Loaded: ${_filteredItems.length}',
+                      style: TextStyle(
+                        color: _errorMessage != null ? Colors.red : Colors.black54, 
+                        fontSize: 12,
+                        fontWeight: _errorMessage != null ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
-              ),
-            ),
-            Positioned(
-              top: 56 + 48,
-              left: 16,
-              right: 16,
-              child: Text(
-                'Loaded: ${_allItems.length} • Filtered: ${_filteredItems.length}',
-                style: const TextStyle(color: Colors.black54, fontSize: 12),
               ),
             ),
 
             // Card area
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.fromLTRB(24, 36, 24, 24),
                 child: AspectRatio(
                   aspectRatio: 3 / 4.6,
                   child: GestureDetector(
@@ -223,19 +295,19 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
 
                         return Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF154D71), width: 3),
+                            borderRadius: BorderRadius.circular(40),
+                            border: Border.all(color: const Color(0xFFED654A), width: 4), // Updated border color
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
                               )
                             ],
                           ),
+                          // Clip inner rotating faces to rounded bounds
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(17),
+                            borderRadius: BorderRadius.circular(36),
                             child: Stack(
                               fit: StackFit.expand,
                               children: [

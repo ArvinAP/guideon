@@ -45,5 +45,13 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- iOS permissions for image picking and camera -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to take your profile photo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photo library to select a profile photo.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>This app saves your selected profile photo.</string>
 </dict>
 </plist>

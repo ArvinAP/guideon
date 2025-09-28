@@ -23,21 +23,19 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   // App palette (from screenshot)
-  static const Color bgLight = Color(0xFFEAEFEF); // page bg
-  static const Color primaryBlue = Color(0xFF154D71); // title/icon
-  static const Color accentBlue = Color(0xFF33A1E0); // section titles
-  static const Color cardBorderBlue = Color(0xFF2EC4B6); // borders/accents
-  static const Color streakPanel = Color(0xFFDBF1F5); // streak panel bg
-  static const Color tileHeaderBlue = Color(0xFF2E6286); // tile top cap
+  static const Color bgLight = Color(0xFFFFF9ED); // page bg to match screenshot
+  static const Color primaryBlue = Color(0xFFF4A100); // title/icon (orange)
+  static const Color accentBlue = Color(0xFF2EC4B6); // section titles (teal)
   static const Color tileShadow = Color(0x33000000); // 20% black
 
   UserProgress? userProgress;
   List<DailyTask> dailyTasks = [];
   Timer? _midnightTimer;
-  DateTime? _lastAwardedDay;
   bool _chatbotAttemptedToday =
       false; // prevent repeated launches in one session
   String _userRole = 'user'; // Default to user role
+  bool _showTaskTips = true; // Controls the visibility of the how-to popup
+  String? _photoUrl; // User profile photo URL
 
   @override
   void initState() {
@@ -56,6 +54,7 @@ class _DashboardPageState extends State<DashboardPage> {
       // Get user profile to check role
       final profileData = await AuthService.getUserProfile(user.uid);
       final role = profileData?['role'] ?? 'user';
+      final String? photoUrl = (profileData?['photoUrl'] as String?)?.trim();
 
       // Get or initialize user progress from Firestore
       Map<String, dynamic>? progressData =
@@ -82,11 +81,22 @@ class _DashboardPageState extends State<DashboardPage> {
         lastStreakIncrement: progressData['lastStreakIncrement']?.toDate(),
       );
 
+      // Check if streak should be reset due to missed days
+      final updatedProgress = _checkAndResetStreakIfNeeded(progress);
+      
       setState(() {
-        userProgress = progress;
+        userProgress = updatedProgress;
         _userRole = role.toString();
-        _updateDailyTasks(progress);
+        _photoUrl = (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : null;
+        _updateDailyTasks(updatedProgress);
       });
+      
+      // Update progress if it was modified (check by comparing streak values)
+      if (updatedProgress.currentStreak != progress.currentStreak || 
+          updatedProgress.currentDay != progress.currentDay) {
+        _updateUserProgress();
+      }
+      
       _scheduleMidnightReset();
       _maybeShowDailyChatbot();
     } catch (e) {
@@ -131,6 +141,31 @@ class _DashboardPageState extends State<DashboardPage> {
     };
 
     await AuthService.updateUserProgress(user.uid, progressData);
+  }
+
+  UserProgress _checkAndResetStreakIfNeeded(UserProgress progress) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final lastIncrement = progress.lastStreakIncrement;
+    
+    // If no last increment date, return as is (new user)
+    if (lastIncrement == null) {
+      return progress;
+    }
+    
+    final lastIncrementDay = DateTime(lastIncrement.year, lastIncrement.month, lastIncrement.day);
+    final daysSinceLastIncrement = today.difference(lastIncrementDay).inDays;
+    
+    // If more than 1 day has passed since last increment, reset streak
+    if (daysSinceLastIncrement > 1) {
+      return progress.copyWith(
+        currentStreak: 0,
+        currentDay: 1,
+        lastUpdated: now,
+      );
+    }
+    
+    return progress;
   }
 
   // Midnight reset ---------------------------------------------------------
@@ -245,26 +280,32 @@ class _DashboardPageState extends State<DashboardPage> {
                         );
                       }
                     },
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[400],
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
+                    child: _photoUrl != null && _photoUrl!.isNotEmpty
+                        ? CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.grey[300],
+                            backgroundImage: NetworkImage(_photoUrl!),
+                          )
+                        : Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[400],
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
                   ),
                 ],
               ),
 
               const SizedBox(height: 32),
 
-              // Streak Goal Section - exact match
+              // Streak Goal Section - original structure
               const Text(
                 'Streak Goal',
                 style: TextStyle(
@@ -277,53 +318,69 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFFDFF7FF), Colors.white],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white, width: 2),
+                  color: bgLight,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Color(0xFFF4A100), width: 2),
                   boxShadow: const [
                     BoxShadow(
-                        blurRadius: 6, offset: Offset(0, 2), color: tileShadow),
+                      color: Color(0x22000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
                   ],
                 ),
                 child: Column(
                   children: [
-                    // Derive active week from currentStreak to avoid highlighting before any completion
+                    // Show week progress based on current streak
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: List.generate(4, (index) {
+                        final weekNumber = index + 1;
+                        final isActiveWeek = progress.currentDay == weekNumber;
+                        final isCompletedWeek = progress.currentDay > weekNumber;
+                        
                         return Container(
-                          width: 56,
-                          height: 56,
+                          width: 52,
+                          height: 52,
                           decoration: BoxDecoration(
-                            color: isActive ? tileHeaderBlue : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
+                            color: isCompletedWeek 
+                                ? const Color(0xFF2EC4B6) // Completed weeks - teal
+                                : isActiveWeek 
+                                    ? const Color(0xFFF4A100) // Active week - orange
+                                    : Colors.white, // Future weeks - white
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: tileHeaderBlue,
-                              width: 2,
+                              color: const Color(0xFFF4A100),
+                              width: 3,
                             ),
                             boxShadow: const [
                               BoxShadow(
-                                  blurRadius: 4,
-                                  offset: Offset(0, 2),
-                                  color: tileShadow),
+                                color: Color(0x22000000),
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
                             ],
                           ),
                           child: Center(
-                            child: Text(
-                              '${index + 1}',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isActive ? Colors.white : tileHeaderBlue,
-                                fontFamily: 'Coiny',
-                              ),
-                            ),
+                            child: isCompletedWeek
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 24,
+                                  )
+                                : Text(
+                                    '$weekNumber',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: isActiveWeek 
+                                          ? Colors.white 
+                                          : const Color(0xFFF4A100),
+                                      fontFamily: 'Coiny',
+                                    ),
+                                  ),
                           ),
                         );
                       }),
@@ -334,7 +391,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         children: [
                           TextSpan(
                             text:
-                                '${progress.currentStreak}/${progress.totalDays} ',
+                                '${progress.currentStreak} \\ ${progress.totalDays} ',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.grey,
@@ -361,7 +418,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
               const SizedBox(height: 32),
 
-              // Daily Tasks Section
+              // Daily Tasks Section - original structure
               const Text(
                 'Daily Tasks',
                 style: TextStyle(
@@ -371,6 +428,85 @@ class _DashboardPageState extends State<DashboardPage> {
                   fontFamily: 'Coiny',
                 ),
               ),
+              if (_showTaskTips) ...[
+                const SizedBox(height: 10),
+                Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF9ED),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Color(0xFFC3EFB6), width: 2),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x22000000),
+                            blurRadius: 6,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.fromLTRB(14, 14, 48, 14),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'How to finish Daily Tasks',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: accentBlue,
+                              fontFamily: 'Coiny',
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            '• Tap any tile to open its page and complete it.\n'
+                            '• Finish all 6 tasks today (Journal, Bible, Quote, Streak Pet, Chatbot, Mood).\n'
+                            '• Complete all tasks before midnight to maintain your streak!',
+                            style: TextStyle(
+                                fontFamily: 'Comfortaa', color: Colors.black87),
+                          ),
+                          SizedBox(height: 10),
+                          Text(
+                            'Benefits for your Streak Pet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: accentBlue,
+                              fontFamily: 'Coiny',
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            '• Completing all tasks adds +1 to your streak.\n'
+                            '• Each completed day gives +10 pet points.\n'
+                            '• Your pet levels up every 100 points.\n'
+                            '• Missing a day resets your streak to 0!',
+                            style: TextStyle(
+                                fontFamily: 'Comfortaa', color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          setState(() => _showTaskTips = false);
+                        },
+                        child: const CircleAvatar(
+                          radius: 14,
+                          backgroundColor: Color(0xFFC3EFB6),
+                          child: Icon(Icons.close, size: 16, color: Color(0xFF154D71)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               StreamBuilder<DailyTasks>(
                 stream: DailyTasksService.instance.watchToday(),
@@ -390,19 +526,24 @@ class _DashboardPageState extends State<DashboardPage> {
                     final lastInc = userProgress!.lastStreakIncrement;
                     final alreadyAwardedToday =
                         lastInc != null && UserProgress.isSameDay(lastInc, ymd);
-                    final guardAwarded = _lastAwardedDay != null &&
-                        UserProgress.isSameDay(_lastAwardedDay!, ymd);
-                    if (!alreadyAwardedToday && !guardAwarded) {
+                    
+                    // Only award if we haven't already awarded today
+                    if (!alreadyAwardedToday) {
                       // Defer state updates to after build to avoid setState() during build
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        // Increment streak day (max 30) and update week box 1..4
+                        if (!mounted) return;
+                        
+                        // Increment streak day (max 30)
                         final nextStreak = (userProgress!.currentStreak + 1)
                             .clamp(0, userProgress!.totalDays);
+                        
                         // Award pet points (+10) and compute level (every 100)
                         final nextPoints = userProgress!.petPoints + 10;
                         final nextLevel = (nextPoints ~/ 100) + 1;
-                        final week = ((nextStreak + 6) ~/ 7).clamp(1, 4);
-                        if (!mounted) return;
+                        
+                        // Calculate current week (1-4) based on streak
+                        final week = ((nextStreak - 1) ~/ 7 + 1).clamp(1, 4);
+                        
                         setState(() {
                           userProgress = userProgress!.copyWith(
                             currentStreak: nextStreak,
@@ -411,15 +552,31 @@ class _DashboardPageState extends State<DashboardPage> {
                             petLevel: nextLevel,
                             lastStreakIncrement: ymd,
                             lastTaskDate: ymd,
-                            lastUpdated: ymd,
+                            lastUpdated: now,
                           );
-                          _lastAwardedDay = ymd;
                         });
+                        
+                        // Update Firestore with new progress
                         _updateUserProgress();
+                        
+                        // Show success feedback to user
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '🎉 Daily tasks completed! +10 pet points earned! Streak: $nextStreak days',
+                                style: const TextStyle(fontFamily: 'Comfortaa'),
+                              ),
+                              backgroundColor: const Color(0xFF2EC4B6),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        }
                       });
                     }
                   }
                   Widget tile({
+                    required String id,
                     required String title,
                     required bool done,
                     required VoidCallback onTap,
@@ -432,98 +589,64 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: Container(
                           height: 170,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: gradient,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: const [
-                              BoxShadow(
-                                  blurRadius: 8,
-                                  offset: Offset(0, 4),
-                                  color: tileShadow),
-                            ],
-                            border: Border.all(color: Colors.white, width: 2),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
                           ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: Stack(
-                              children: [
-                                // Full-width top cap inside the card (no light bg edges)
-                                Align(
-                                  alignment: Alignment.topCenter,
-                                  child: Container(
-                                    height: 36,
-                                    decoration: const BoxDecoration(
-                                      color: tileHeaderBlue,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: Radius.circular(24),
-                                        topRight: Radius.circular(24),
-                                        bottomLeft: Radius.circular(18),
-                                        bottomRight: Radius.circular(18),
+                          child: Container(
+                            // inner border to simulate inside stroke (C3EFB6, 5px)
+                            margin: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF9ED), // FFF9ED fill
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                  color: Color(0xFFC3EFB6), width: 5),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 14),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        title,
+                                        textAlign: TextAlign.center,
+                                        softWrap: true,
+                                        maxLines: 3,
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 16,
+                                          height: 1.2,
+                                          fontFamily: 'Comfortaa',
+                                        ),
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                            blurRadius: 6,
-                                            offset: Offset(0, 3),
-                                            color: tileShadow),
-                                      ],
                                     ),
                                   ),
-                                ),
-                                // Content
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(16, 48, 16, 14),
-                                  child: Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Flexible(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            title,
-                                            textAlign: TextAlign.center,
-                                            softWrap: true,
-                                            maxLines: 2,
-                                            style: const TextStyle(
-                                              color: Colors.black87,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                              height: 1.2,
-                                              fontFamily: 'Comfortaa',
-                                            ),
-                                          ),
-                                        ),
+                                  const SizedBox(height: 12),
+                                  if (subtitle != null)
+                                    Text(
+                                      subtitle,
+                                      style: const TextStyle(
+                                        color: Color(0xFF154D71), // deep teal
+                                        fontFamily: 'Coiny',
+                                        fontSize: 18,
                                       ),
-                                      const SizedBox(height: 6),
-                                      if (subtitle != null)
-                                        Text(
-                                          subtitle,
-                                          style: const TextStyle(
-                                              color: Colors.black54,
-                                              fontFamily: 'Comfortaa'),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      const SizedBox(height: 6),
-                                      Center(
-                                        child: Icon(
-                                          done
-                                              ? Icons.check_circle
-                                              : Icons.radio_button_unchecked,
-                                          color: done
-                                              ? Colors.green[700]
-                                              : Colors.black38,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
+                                  const SizedBox(height: 10),
+                                  Icon(
+                                    done ? Icons.check_circle : Icons.check_circle_outline,
+                                    color: done
+                                        ? const Color(0xFF2EC4B6) // teal when done
+                                        : const Color(0xFFC3EFB6), // light green outline when not done
+                                    size: 26,
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -538,15 +661,15 @@ class _DashboardPageState extends State<DashboardPage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
+                            color: Colors.transparent,
                             width: 1.5,
                           ),
                         ),
                         child: Row(
                           children: [
                             tile(
+                              id: 'journal',
                               title: 'Write a\nJournal\nentry',
-                              subtitle: '${today.journalCount} today',
                               done: today.journalDone,
                               onTap: () {
                                 Navigator.push(
@@ -559,6 +682,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(width: 16),
                             tile(
+                              id: 'bible',
                               title: 'Read today\'s\nBible verse',
                               done: today.bibleRead,
                               onTap: () {
@@ -578,14 +702,12 @@ class _DashboardPageState extends State<DashboardPage> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1.5,
-                          ),
+                          border: Border.all(color: Colors.transparent, width: 1.5),
                         ),
                         child: Row(
                           children: [
                             tile(
+                              id: 'quote',
                               title: 'View today\'s\nQuote',
                               done: today.quoteViewed,
                               onTap: () {
@@ -603,6 +725,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(width: 16),
                             tile(
+                              id: 'pet',
                               title: 'Visit\nStreak Pet',
                               done: today.streakPetVisited,
                               onTap: () {
@@ -622,14 +745,12 @@ class _DashboardPageState extends State<DashboardPage> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.grey.withOpacity(0.3),
-                            width: 1.5,
-                          ),
+                          border: Border.all(color: Colors.transparent, width: 1.5),
                         ),
                         child: Row(
                           children: [
                             tile(
+                              id: 'chatbot',
                               title: 'Use\nChatbot',
                               done: today.chatbotUsed,
                               onTap: _openMoodChatFlow,
@@ -637,14 +758,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(width: 16),
                             tile(
+                              id: 'mood',
                               title: 'Check\nMood',
                               done: today.moodChecked,
-                              onTap: () {
-                                DailyTasksService.instance.mark('moodChecked');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Mood checked!')),
-                                );
-                              },
+                              onTap: _openMoodChatFlow,
                               gradient: const [Color(0xFFDFF7FF), Colors.white],
                             ),
                           ],
@@ -705,28 +822,31 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ),
-      bottomNavigationBar: GuideOnBottomNav(
-        currentIndex: -1, // No specific tab active on dashboard
-        onItemSelected: (i) {
-          if (i == 0) {
-            _openMoodChatFlow();
-          } else if (i == 1) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const BibleVersesPage()),
-            );
-          } else if (i == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const MotivationalQuotesPage()),
-            );
-          } else if (i == 3) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const JournalListPage()),
-            );
-          }
-        },
+      bottomNavigationBar: Material(
+        elevation: 0,
+        child: GuideOnPillNav(
+          currentIndex: -1, // No specific tab active on dashboard
+          onItemSelected: (i) {
+            if (i == 0) {
+              _openMoodChatFlow();
+            } else if (i == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BibleVersesPage()),
+              );
+            } else if (i == 2) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MotivationalQuotesPage()),
+              );
+            } else if (i == 3) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const JournalListPage()),
+              );
+            }
+          },
+        ),
       ),
     );
   }
@@ -769,6 +889,37 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (_) {
       // Swallow errors to keep dashboard resilient
+    }
+  }
+
+  Future<void> _loadTaskTipsPref() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final nowPh = _manilaNow();
+      final ymd =
+          '${nowPh.year}-${nowPh.month.toString().padLeft(2, '0')}-${nowPh.day.toString().padLeft(2, '0')}';
+      const key = 'task_tips_hidden_ymd';
+      final hiddenYmd = prefs.getString(key);
+      final shouldShow = hiddenYmd != ymd; // show unless already hidden today
+      if (!mounted) return;
+      setState(() {
+        _showTaskTips = shouldShow;
+      });
+    } catch (_) {
+      // If prefs fails, keep default true so tips still show
+    }
+  }
+
+  Future<void> _hideTaskTipsToday() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final nowPh = _manilaNow();
+      final ymd =
+          '${nowPh.year}-${nowPh.month.toString().padLeft(2, '0')}-${nowPh.day.toString().padLeft(2, '0')}';
+      const key = 'task_tips_hidden_ymd';
+      await prefs.setString(key, ymd);
+    } catch (_) {
+      // Ignore errors; UI already hid the tips in this session
     }
   }
 

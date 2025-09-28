@@ -64,7 +64,7 @@ class _SignUpPageState extends State<SignUpPage> {
     final first = firstNameController.text.trim();
     final last = lastNameController.text.trim();
     final uname = usernameController.text.trim();
-    final email = emailController.text.trim();
+    final email = emailController.text.trim().toLowerCase();
     final pass = passwordController.text;
     final confirm = confirmPasswordController.text;
     final dobStr = dateOfBirthController.text.trim();
@@ -73,6 +73,12 @@ class _SignUpPageState extends State<SignUpPage> {
     if ([first, last, uname, email, pass, confirm, dobStr, ageStr]
         .any((e) => e.isEmpty)) {
       _showSnack('Please fill in all fields');
+      return;
+    }
+    // Enforce institutional email domain
+    final allowedEmail = RegExp(r'^[^@\s]+@dwc-legazpi\.edu$');
+    if (!allowedEmail.hasMatch(email)) {
+      _showSnack('Please use your @dwc-legazpi.edu email address');
       return;
     }
     if (pass != confirm) {
@@ -169,6 +175,17 @@ class _SignUpPageState extends State<SignUpPage> {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000), // subtle shadow
+            offset: Offset(0, 3),
+            blurRadius: 6,
+          ),
+        ],
+      ),
       child: TextField(
         controller: controller,
         obscureText: obscureText,
@@ -187,17 +204,16 @@ class _SignUpPageState extends State<SignUpPage> {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(25),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.transparent),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(25),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.transparent),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(25),
-            borderSide: const BorderSide(
-                color: Color.fromARGB(255, 21, 77, 113), width: 2),
+          focusedBorder: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: Color(0xFF3DB5A6), width: 2),
           ),
         ),
       ),
@@ -207,7 +223,7 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color.fromARGB(255, 234, 239, 239),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -224,7 +240,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 51, 161, 224),
+                      color: Color(0xFF3DB5A6),
                       fontFamily: 'Coiny',
                     ),
                   ),
@@ -233,7 +249,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     "Let's make each day brighter",
                     style: TextStyle(
                       fontSize: 16,
-                      color: Color.fromARGB(255, 0, 0, 0),
+                      color: Colors.black,
                       fontFamily: 'Comfortaa',
                     ),
                   ),
@@ -241,7 +257,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     'with',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Color.fromARGB(255, 0, 0, 0),
+                      color: Colors.black,
                       fontFamily: 'Comfortaa',
                     ),
                   ),
@@ -250,7 +266,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 21, 77, 113),
+                      color: Color(0xFFF4A100),
                       fontFamily: 'Coiny',
                     ),
                   ),
@@ -285,7 +301,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
               _buildTextField(
                 controller: emailController,
-                hintText: "Enter your email",
+                hintText: "Enter your email (@dwc-legazpi.edu)",
               ),
 
               _buildTextField(
@@ -367,7 +383,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     'Already have an account? ',
                     style: TextStyle(
                       fontSize: 16,
-                      color: Color.fromARGB(255, 0, 0, 0),
+                      color: Colors.black,
                       fontFamily: 'Comfortaa',
                     ),
                   ),
@@ -376,11 +392,11 @@ class _SignUpPageState extends State<SignUpPage> {
                       Navigator.pop(context);
                     },
                     child: const Text(
-                      'LogIn',
+                      'Login',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color.fromARGB(255, 21, 77, 113),
+                        color: Color(0xFF3DB5A6),
                         fontFamily: 'Comfortaa',
                       ),
                     ),

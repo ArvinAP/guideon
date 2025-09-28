@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
 
 /// A reusable bottom navigation bar with 4 items:
 /// 0: Chatbot (sheep)
@@ -112,6 +113,94 @@ class _NavItem extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// New pill-style bottom nav used on the Chatbot screen.
+/// Icons: sheep (MDI), cross (MDI), head+lightbulb (MDI), clipboard+edit (MDI)
+class GuideOnPillNav extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onItemSelected;
+
+  const GuideOnPillNav({
+    super.key,
+    required this.currentIndex,
+    required this.onItemSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const barColor = Color(0xFF3DB5A6);
+    const iconColor = Color(0xFF154D71);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: barColor,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 8,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _pillItem(
+                index: 0,
+                isActive: currentIndex == 0,
+                onTap: () => onItemSelected(0),
+                child: Icon(MdiIcons.sheep, color: iconColor, size: 26),
+              ),
+              _pillItem(
+                index: 1,
+                isActive: currentIndex == 1,
+                onTap: () => onItemSelected(1),
+                child: Icon(MdiIcons.cross, color: iconColor, size: 26),
+              ),
+              _pillItem(
+                index: 2,
+                isActive: currentIndex == 2,
+                onTap: () => onItemSelected(2),
+                child: Icon(MdiIcons.headLightbulbOutline, color: iconColor, size: 26),
+              ),
+              _pillItem(
+                index: 3,
+                isActive: currentIndex == 3,
+                onTap: () => onItemSelected(3),
+                child: Icon(MdiIcons.clipboardEditOutline, color: iconColor, size: 26),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pillItem({
+    required int index,
+    required bool isActive,
+    required VoidCallback onTap,
+    required Widget child,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white.withOpacity(0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: child,
       ),
     );
   }

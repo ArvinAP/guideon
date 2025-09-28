@@ -36,7 +36,7 @@ class _MoodPageState extends State<MoodPage> {
   Widget build(BuildContext context) {
     final mood = moods[index];
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 234, 239, 239),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -72,17 +72,20 @@ class _MoodPageState extends State<MoodPage> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDFF7FF),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color.fromARGB(255, 21, 77, 113),
-                        width: 1.2,
-                      ),
+                      color: const Color(0xFFAEEAD8),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1A000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: const Text(
                       'How would you describe your mood today?',
                       style: TextStyle(
-                        color: Color.fromARGB(255, 21, 77, 113),
+                        color: Colors.black,
                         fontWeight: FontWeight.w600,
                         fontFamily: 'Comfortaa',
                       ),
@@ -102,7 +105,7 @@ class _MoodPageState extends State<MoodPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_left, size: 32),
+                        icon: const Icon(Icons.arrow_left, size: 32, color: Color(0xFFF4A300)),
                         onPressed: prev,
                       ),
                       Container(
@@ -126,7 +129,7 @@ class _MoodPageState extends State<MoodPage> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.arrow_right, size: 32),
+                        icon: const Icon(Icons.arrow_right, size: 32, color: Color(0xFFF4A300)),
                         onPressed: next,
                       ),
                     ],
@@ -136,8 +139,8 @@ class _MoodPageState extends State<MoodPage> {
                     'I feel ${mood.label}',
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color.fromARGB(255, 21, 77, 113),
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
                       fontFamily: 'Comfortaa',
                     ),
                   ),

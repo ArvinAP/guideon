@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'change_password.dart';
-import '../services/auth_service.dart';
+  import 'package:firebase_auth/firebase_auth.dart';
+  import 'change_password.dart';
+  import '../services/auth_service.dart';
+  import 'dart:io';
+  import 'package:image_picker/image_picker.dart';
+  import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+  import 'package:flutter/foundation.dart' show kIsWeb;
+  import 'dart:typed_data';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -23,6 +28,11 @@ class _EditProfilePageState extends State<EditProfilePage> {
   User? currentUser;
   bool isLoading = true;
   bool isSaving = false;
+  final ImagePicker _picker = ImagePicker();
+  XFile? _pickedImage;
+  Uint8List? _pickedBytes; // for Web previews/uploads
+  String? _photoUrl;
+  bool _removePhoto = false;
 
   // Store original values for cancel functionality
   String? originalFirstName;
@@ -44,6 +54,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
           setState(() {
             currentUser = user;
             userProfile = profileData;
+            _photoUrl = profileData?['photoUrl'] as String?;
 
             // Populate form fields
             _firstNameCtrl.text = profileData?['firstName'] ?? '';
@@ -105,9 +116,90 @@ class _EditProfilePageState extends State<EditProfilePage> {
     super.dispose();
   }
 
+  Future<void> _pickImageFrom(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, maxWidth: 1024, maxHeight: 1024, imageQuality: 85);
+      if (picked != null) {
+        setState(() {
+          _pickedImage = picked;
+          _pickedBytes = null;
+          _removePhoto = false;
+        });
+        if (kIsWeb) {
+          final bytes = await picked.readAsBytes();
+          if (!mounted) return;
+          setState(() => _pickedBytes = bytes);
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to get image: ${e.toString()}')),
+      );
+    }
+  }
+
+  void _showPhotoOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImageFrom(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImageFrom(ImageSource.gallery);
+                },
+              ),
+              if (_photoUrl != null && _photoUrl!.isNotEmpty || _pickedImage != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  title: const Text('Remove Photo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _pickedImage = null;
+                      _photoUrl = '';
+                      _removePhoto = true;
+                    });
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const textPrimary = Color(0xFF154D71);
+    // UI palette tuned to the provided mock
+    const headerTeal = Color(0xFF6ED3C0); // top header
+    const cardCream = Color(0xFFFEF7EC); // card background
+    const btnOrange = Color(0xFFF5A623); // change password button
+
+    // Sizing helpers
+    final media = MediaQuery.of(context);
+    final double headerHeight = media.size.height * 0.5; // teal area covers half screen
+    const double contentTopPadding = 110; // keep existing overlap placement
+    final double minCardHeight =
+        media.size.height - contentTopPadding - media.padding.top;
 
     if (isLoading) {
       return Scaffold(
@@ -131,23 +223,32 @@ class _EditProfilePageState extends State<EditProfilePage> {
             right: 0,
             child: SafeArea(
               child: Container(
-                height: 140,
+                height: headerHeight,
                 width: double.infinity,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF2E7AA1),
+                  color: headerTeal,
                   borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
                   ),
                 ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'Edit Profile',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Coiny',
+                alignment: Alignment.topCenter,
+                child: const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Text(
+                    'Edit Profile',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Coiny',
+                      shadows: [
+                        Shadow(
+                            color: Colors.black26,
+                            offset: Offset(0, 2),
+                            blurRadius: 4),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -157,14 +258,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
           // Content that can scroll over header
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 100, 0, 24),
+              padding: const EdgeInsets.fromLTRB(0, contentTopPadding, 0, 0),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade300),
+                  color: cardCream,
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(color: Colors.black26, width: 1.2),
                 ),
+                constraints: BoxConstraints(minHeight: minCardHeight),
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 child: Form(
                   key: _formKey,
@@ -205,36 +307,40 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
                       const SizedBox(height: 8),
 
-                      // Avatar with edit badge (placeholder action)
+                      // Avatar with pick image action
                       Center(
                         child: Stack(
                           children: [
-                            const CircleAvatar(
+                            CircleAvatar(
                               radius: 48,
-                              backgroundColor: Color(0xFFE0E0E0),
-                              child: Icon(Icons.person,
-                                  size: 56, color: Colors.grey),
+                              backgroundColor: const Color(0xFFE0E0E0),
+                              backgroundImage: _pickedImage != null
+                                  ? (kIsWeb
+                                      ? (_pickedBytes != null
+                                          ? MemoryImage(_pickedBytes!)
+                                          : null)
+                                      : FileImage(File(_pickedImage!.path))
+                                          as ImageProvider?)
+                                  : (_photoUrl != null && _photoUrl!.isNotEmpty)
+                                      ? NetworkImage(_photoUrl!)
+                                      : null,
+                              child: (_pickedImage == null && (_photoUrl == null || _photoUrl!.isEmpty))
+                                  ? const Icon(Icons.person, size: 56, color: Colors.grey)
+                                  : null,
                             ),
                             Positioned(
                               right: 0,
                               bottom: 0,
                               child: InkWell(
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content:
-                                            Text('Change photo coming soon')),
-                                  );
-                                },
+                                onTap: _showPhotoOptions,
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.black12),
+                                    border: Border.all(color: Colors.black26),
                                   ),
-                                  child: const Icon(Icons.settings,
-                                      size: 16, color: Colors.black54),
+                                  child: const Icon(Icons.camera_alt, size: 16, color: Colors.black54),
                                 ),
                               ),
                             ),
@@ -287,8 +393,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
                         enabled: false,
                         decoration: _inputDecoration('username@gmail.com')
                             .copyWith(
-                                suffixIcon:
-                                    const Icon(Icons.lock_outline, size: 18)),
+                                suffixIcon: const Icon(Icons.lock_outline,
+                                    size: 18)),
                       ),
 
                       const SizedBox(height: 14),
@@ -330,15 +436,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       Center(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFFF59E),
-                            foregroundColor: textPrimary,
-                            elevation: 0,
+                            backgroundColor: btnOrange,
+                            foregroundColor: Colors.white,
+                            elevation: 1,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            textStyle:
-                                const TextStyle(fontWeight: FontWeight.w800),
+                                horizontal: 20, vertical: 12),
+                            shape: const StadiumBorder(),
+                            textStyle: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Comfortaa',
+                            ),
                           ),
                           onPressed: () {
                             Navigator.push(
@@ -347,10 +454,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                   builder: (_) => const ChangePasswordPage()),
                             );
                           },
-                          child: const Text(
-                            'Change Password',
-                            style: TextStyle(fontFamily: 'Comfortaa'),
-                          ),
+                          child: const Text('Change Password'),
                         ),
                       ),
                     ],
@@ -365,22 +469,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
   }
 
   InputDecoration _inputDecoration(String hint) {
+    const fill = Color(0xFFFFFCF7);
+    const borderColor = Color(0xFF2FB7AA);
     return InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFF7F7F7),
+      fillColor: fill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF2E7AA1), width: 1),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: borderColor, width: 1),
       ),
       disabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Colors.black26, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF2E7AA1), width: 2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: borderColor, width: 2),
       ),
     );
   }
@@ -399,6 +505,31 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'lastName': _lastNameCtrl.text.trim(),
         'username': _usernameCtrl.text.trim(),
       };
+
+      // If a new image was picked, upload to Firebase Storage
+      if (_pickedImage != null) {
+        final storage = firebase_storage.FirebaseStorage.instance;
+        final ref = storage.ref().child('user_photos/${user.uid}.jpg');
+        if (kIsWeb) {
+          // Use bytes on Web
+          final bytes = _pickedBytes ?? await _pickedImage!.readAsBytes();
+          await ref.putData(
+            bytes,
+            firebase_storage.SettableMetadata(contentType: 'image/jpeg'),
+          );
+        } else {
+          final file = File(_pickedImage!.path);
+          await ref.putFile(
+            file,
+            firebase_storage.SettableMetadata(contentType: 'image/jpeg'),
+          );
+        }
+        final url = await ref.getDownloadURL();
+        _photoUrl = url;
+        updatedData['photoUrl'] = url;
+      } else if (_removePhoto) {
+        updatedData['photoUrl'] = '';
+      }
 
       await AuthService.updateUserProfile(user.uid, updatedData);
 

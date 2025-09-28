@@ -25,7 +25,8 @@ class _BibleVersesPageState extends State<BibleVersesPage>
   String _selectedTheme = 'All';
   int _currentIndex = 0;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
-  Set<String> _debugThemes = {};
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -39,21 +40,25 @@ class _BibleVersesPageState extends State<BibleVersesPage>
 
   @override
   void dispose() {
-    _controller.dispose();
     _sub?.cancel();
     super.dispose();
   }
 
   void _toggleCard() {
+    // If there's an error, retry loading
+    if (_errorMessage != null) {
+      _subscribe();
+      return;
+    }
+    
     if (_isFront) {
       _controller.reverse();
     } else {
       _controller.forward();
-      // Mark verse viewed as a daily task
-      DailyTasksService.instance.mark('bibleRead');
-      // advance to another verse within the filtered theme
+      // Mark verse viewed as a daily task only if we have verses
       if (_filteredItems.isNotEmpty) {
-        // choose a random next index different from current when possible
+        DailyTasksService.instance.mark('bibleRead');
+        // advance to another verse within the filtered theme
         final rand = math.Random();
         int next = _filteredItems.length == 1 ? 0 : rand.nextInt(_filteredItems.length);
         if (next == _currentIndex && _filteredItems.length > 1) {
@@ -67,37 +72,128 @@ class _BibleVersesPageState extends State<BibleVersesPage>
 
   void _subscribe() {
     _sub?.cancel();
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     final sel = _selectedTheme.trim();
     final selLower = sel.toLowerCase();
-    final selUpper = sel.toUpperCase();
-    final selCap = sel.isEmpty ? sel : selLower[0].toUpperCase() + selLower.substring(1);
-    Query<Map<String, dynamic>> q = FirebaseFirestore.instance.collection('verses');
-    if (selLower != 'all' && selLower.isNotEmpty) {
-      q = q.where('themes', arrayContainsAny: [selLower, selCap, selUpper]);
+    
+    try {
+      Query<Map<String, dynamic>> q = FirebaseFirestore.instance.collection('verses');
+      
+      // Improved query logic for theme filtering
+      if (selLower != 'all' && selLower.isNotEmpty) {
+        // Try multiple variations of the theme for better matching
+        final variations = [
+          selLower,                                           // lowercase: "happy"
+          selLower[0].toUpperCase() + selLower.substring(1), // Capitalized: "Happy"
+          selLower.toUpperCase(),                            // All caps: "HAPPY"
+        ];
+        q = q.where('themes', arrayContainsAny: variations);
+        debugPrint('Filtering verses for theme variations: $variations');
+      }
+      
+      _sub = q.snapshots().listen(
+        (snap) {
+          try {
+            final items = snap.docs.map((d) {
+              final data = d.data();
+              final text = (data['text'] ?? '').toString().trim();
+              final ref = (data['reference'] ?? data['ref'] ?? '').toString().trim();
+              final themes = _parseThemes(data['themes']);
+              
+              // Only include verses with actual text content
+              if (text.isEmpty) return null;
+              
+              return _VerseItem(text: text, reference: ref, themes: themes);
+            }).where((e) => e != null).cast<_VerseItem>().toList();
+
+            setState(() {
+              _filteredItems = items;
+              _currentIndex = _filteredItems.isEmpty ? 0 : _currentIndex % _filteredItems.length;
+              _isLoading = false;
+              _errorMessage = null;
+            });
+            
+            debugPrint('Verses loaded: ${_filteredItems.length} for theme "$selLower"');
+            
+            // Don't fallback to all verses - keep the filter strict
+            if (_filteredItems.isEmpty && selLower != 'all') {
+              debugPrint('No verses found for theme "$selLower". Try a different theme or check your database.');
+            }
+          } catch (e) {
+            setState(() {
+              _isLoading = false;
+              _errorMessage = 'Error processing verses: ${e.toString()}';
+            });
+            debugPrint('Error processing verses: $e');
+          }
+        },
+        onError: (error) {
+          debugPrint('Firestore error: $error');
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Failed to load verses from database: ${error.toString()}';
+          });
+        },
+      );
+    } catch (e) {
+      debugPrint('Connection error: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Connection error: ${e.toString()}';
+      });
     }
-    _sub = q.snapshots().listen((snap) {
+  }
+
+  void _loadAllVerses() {
+    // Load all verses when 'All' theme is selected or as a fallback
+    final selectedTheme = _selectedTheme.toLowerCase();
+    
+    Query<Map<String, dynamic>> query = FirebaseFirestore.instance.collection('verses');
+    
+    // If a specific theme was selected but no results found, still try to filter
+    if (selectedTheme != 'all' && selectedTheme.isNotEmpty) {
+      final variations = [
+        selectedTheme,
+        selectedTheme[0].toUpperCase() + selectedTheme.substring(1),
+        selectedTheme.toUpperCase(),
+      ];
+      query = query.where('themes', arrayContainsAny: variations);
+      debugPrint('Fallback: Still filtering for theme variations: $variations');
+    }
+    
+    query.limit(50).get().then((snap) {
       final items = snap.docs.map((d) {
         final data = d.data();
-        final text = (data['text'] ?? '').toString();
-        final ref = (data['reference'] ?? data['ref'] ?? '').toString();
+        final text = (data['text'] ?? '').toString().trim();
+        final ref = (data['reference'] ?? data['ref'] ?? '').toString().trim();
         final themes = _parseThemes(data['themes']);
+        
+        if (text.isEmpty) return null;
         return _VerseItem(text: text, reference: ref, themes: themes);
-      }).where((e) => e.text.isNotEmpty).toList();
+      }).where((e) => e != null).cast<_VerseItem>().toList();
 
       setState(() {
         _filteredItems = items;
-        _debugThemes = items
-            .expand((e) => e.themes)
-            .map((t) => t.toString().toLowerCase().trim())
-            .where((t) => t.isNotEmpty)
-            .toSet();
-        _currentIndex = _filteredItems.isEmpty ? 0 : _currentIndex % _filteredItems.length;
+        _currentIndex = 0;
+        _isLoading = false;
+        _errorMessage = items.isEmpty ? 'No verses found for "$_selectedTheme"' : null;
       });
-      // Debug
-      // ignore: avoid_print
-      debugPrint('Verses (server-filtered) loaded: ${_filteredItems.length} for theme "$selLower"');
+      
+      debugPrint('Fallback: Loaded ${items.length} verses for theme "$selectedTheme"');
+    }).catchError((error) {
+      debugPrint('Fallback loading failed: $error');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load verses from database: ${error.toString()}';
+      });
     });
   }
+
+
 
   List<String> _parseThemes(dynamic raw) {
     if (raw is List) {
@@ -117,16 +213,25 @@ class _BibleVersesPageState extends State<BibleVersesPage>
   // Filtering is handled server-side via arrayContains; _filteredItems mirrors query results.
 
   String get _currentText {
-    if (_filteredItems.isEmpty) return 'No verses found for this theme.';
+    if (_isLoading) return 'Loading verses...';
+    if (_errorMessage != null) return 'Error: $_errorMessage\n\nTap to retry.';
+    if (_filteredItems.isEmpty) {
+      if (_selectedTheme.toLowerCase() == 'all') {
+        return 'No verses found in database.\n\nPlease add some verses through the admin panel.';
+      } else {
+        return 'No verses found for "$_selectedTheme".\n\nTry selecting "All" or a different feeling.';
+      }
+    }
+    
     final it = _filteredItems[_currentIndex];
-    final ref = it.reference.isNotEmpty ? '\n— ${it.reference}' : '';
+    final ref = it.reference.isNotEmpty ? '\n\n— ${it.reference}' : '';
     return '${it.text}$ref';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED), // Cream background to match design
       body: SafeArea(
         child: Stack(
           children: [
@@ -148,7 +253,7 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                 child: Text(
                   'Bible Verses',
                   style: const TextStyle(
-                    color: Color(0xFF154D71),
+                    color: Color(0xFFF4A100), // Orange color to match design
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
                     fontFamily: 'Coiny',
@@ -192,17 +297,18 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Tiny debug counter (remove later if desired)
+                    // Status indicator
                     Text(
-                      'Loaded: ${_filteredItems.length}',
-                      style: const TextStyle(color: Colors.black54, fontSize: 12),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Themes seen: ${_debugThemes.join(', ')}',
-                      style: const TextStyle(color: Colors.black45, fontSize: 11),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                      _isLoading 
+                          ? 'Loading...' 
+                          : _errorMessage != null 
+                              ? 'Error - Tap card to retry'
+                              : 'Loaded: ${_filteredItems.length}',
+                      style: TextStyle(
+                        color: _errorMessage != null ? Colors.red : Colors.black54, 
+                        fontSize: 12,
+                        fontWeight: _errorMessage != null ? FontWeight.w600 : FontWeight.normal,
+                      ),
                     ),
                   ],
                 ),
@@ -238,20 +344,19 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                         // Outer static card shell (prevents stretching/shadow warping)
                         return Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF154D71), width: 3),
+                            borderRadius: BorderRadius.circular(40),
+                            border: Border.all(color: const Color(0xFF115280), width: 4), // Thicker border to match the card design
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 14,
-                                offset: const Offset(0, 6),
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 4),
                               )
                             ],
                           ),
                           // Clip inner rotating faces to rounded bounds
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(17),
+                            borderRadius: BorderRadius.circular(36),
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
@@ -263,9 +368,15 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                                     transform: Matrix4.identity()
                                       ..setEntry(3, 2, 0.0008)
                                       ..rotateY(angleBack),
-                                    child: Image.asset(
-                                      'lib/assets/images/bible verse card.png',
-                                      fit: BoxFit.cover,
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      child: Image.asset(
+                                        'lib/assets/images/bible verse card.png',
+                                        fit: BoxFit.cover,
+                                        alignment: Alignment.center,
+                                        filterQuality: FilterQuality.high,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -349,6 +460,7 @@ class _BibleVersesPageState extends State<BibleVersesPage>
       ),
     );
   }
+
 }
 
 class _VerseItem {

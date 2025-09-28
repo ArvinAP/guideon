@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:guideon/services/chat_service.dart';
-import '../components/bottom_nav.dart';
+import 'package:guideon/components/bottom_nav.dart';
+import '../services/chat_service.dart';
 import '../services/daily_tasks_service.dart';
 import 'dashboard.dart';
 import 'bible_verses.dart';
@@ -188,7 +188,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _isSending = true;
       _engaged = true; // user interacted
     });
-    
+
     // Mark tasks as completed when user engages with chatbot
     if (_engaged) {
       DailyTasksService.instance.mark('chatbotUsed');
@@ -269,37 +269,12 @@ class _ChatbotPageState extends State<ChatbotPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
         child: Column(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF9AF),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color.fromARGB(255, 21, 77, 113),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Text(
-                      'I feel $_selectedMood',
-                      style: const TextStyle(
-                        color: Color.fromARGB(255, 21, 77, 113),
-                        fontFamily: 'Comfortaa',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Small spacer (header removed; chip moved inside card)
+            const SizedBox(height: 8),
 
             // Conversation card
             Expanded(
@@ -307,10 +282,10 @@ class _ChatbotPageState extends State<ChatbotPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD6F1F6),
-                    borderRadius: BorderRadius.circular(20),
+                    color: const Color(0xFFFFF9ED),
+                    borderRadius: BorderRadius.circular(28),
                     border:
-                        Border.all(color: const Color(0xFF2EC4B6), width: 1.5),
+                        Border.all(color: const Color(0xFF2EC4B6), width: 3),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x33000000),
@@ -339,56 +314,113 @@ class _ChatbotPageState extends State<ChatbotPage> {
                             },
                           ),
                           const Spacer(),
+                          // Pill chip for current mood on the top-right
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF9AF),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: const Color(0xFF2EC4B6),
+                                width: 1.5,
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x1A000000),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              'I feel $_selectedMood',
+                              style: const TextStyle(
+                                color: Color(0xFF154D71),
+                                fontFamily: 'Comfortaa',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Expanded(
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          itemCount: _messages.length + (_isSending ? 1 : 0),
-                          padding: const EdgeInsets.only(bottom: 12),
-                          itemBuilder: (context, i) {
-                            // Trailing typing indicator while waiting for reply
-                            if (_isSending && i == _messages.length) {
-                              return _typingBubble();
-                            }
-                            final m = _messages[i];
-                            if (m.role == 'system') {
-                              return const SizedBox.shrink();
-                            }
-                            final isUser = m.role == 'user';
-                            return Align(
-                              alignment: isUser
-                                  ? Alignment.centerRight
-                                  : Alignment.centerLeft,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 10),
-                                constraints:
-                                    const BoxConstraints(maxWidth: 280),
-                                decoration: BoxDecoration(
-                                  color: isUser
-                                      ? const Color(0xFFFFF9AF)
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color:
-                                        const Color.fromARGB(255, 21, 77, 113),
-                                    width: 1.0,
-                                  ),
+                        child: (_messages
+                                .where((m) => m.role != 'system')
+                                .isEmpty)
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'Hello',
+                                      style: const TextStyle(
+                                        fontFamily: 'Coiny',
+                                        fontSize: 32,
+                                        color: Color(0xFF3DB5A6),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${widget.username ?? 'Username'}!',
+                                      style: const TextStyle(
+                                        fontFamily: 'Coiny',
+                                        fontSize: 32,
+                                        color: Color(0xFFF4A100),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  m.content,
-                                  style: const TextStyle(
-                                    color: Color.fromARGB(255, 21, 77, 113),
-                                    fontFamily: 'Comfortaa',
-                                  ),
-                                ),
+                              )
+                            : ListView.builder(
+                                controller: _scrollController,
+                                itemCount:
+                                    _messages.length + (_isSending ? 1 : 0),
+                                padding: const EdgeInsets.only(bottom: 12),
+                                itemBuilder: (context, i) {
+                                  // Trailing typing indicator while waiting for reply
+                                  if (_isSending && i == _messages.length) {
+                                    return _typingBubble();
+                                  }
+                                  final m = _messages[i];
+                                  if (m.role == 'system') {
+                                    return const SizedBox.shrink();
+                                  }
+                                  final isUser = m.role == 'user';
+                                  return Align(
+                                    alignment: isUser
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(
+                                          vertical: 6),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 10),
+                                      constraints:
+                                          const BoxConstraints(maxWidth: 280),
+                                      decoration: BoxDecoration(
+                                        color: isUser
+                                            ? const Color(0xFFFFF9AF)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: const Color.fromARGB(
+                                              255, 21, 77, 113),
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        m.content,
+                                        style: const TextStyle(
+                                          color:
+                                              Color.fromARGB(255, 21, 77, 113),
+                                          fontFamily: 'Comfortaa',
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
                       ),
                     ],
                   ),
@@ -398,81 +430,61 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
             const SizedBox(height: 12),
 
-            // Input bar + send
+            // Input bar with icons inside capsule
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: TextField(
-                        controller: _controller,
-                        minLines: 1,
-                        maxLines: 5,
-                        style: const TextStyle(
-                          fontFamily: 'Comfortaa',
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Ask GuideOn',
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(
-                            fontFamily: 'Comfortaa',
-                          ),
-                        ),
-                        onSubmitted: (_) => _send(),
-                      ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 44,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF154D71),
-                        shape: const CircleBorder(),
-                        padding: const EdgeInsets.all(10),
-                      ),
-                      onPressed: _isSending ? null : _send,
-                      child: _isSending
+                  ],
+                ),
+                child: TextField(
+                  controller: _controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 14),
+                    border: InputBorder.none,
+                    hintText: 'Ask Guideon',
+                    hintStyle: const TextStyle(fontFamily: 'Comfortaa'),
+                    prefixIcon: const Icon(Icons.add, color: Color(0xFF3DB5A6)),
+                    suffixIcon: IconButton(
+                      icon: _isSending
                           ? const SizedBox(
                               width: 18,
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor:
-                                    AlwaysStoppedAnimation(Colors.white),
+                                    AlwaysStoppedAnimation(Color(0xFF3DB5A6)),
                               ),
                             )
                           : const Icon(Icons.arrow_forward,
-                              color: Colors.white),
+                              color: Color(0xFF3DB5A6)),
+                      onPressed: _isSending ? null : _send,
                     ),
-                  )
-                ],
+                  ),
+                  onSubmitted: (_) => _send(),
+                  style: const TextStyle(fontFamily: 'Comfortaa'),
+                ),
               ),
-            )
+            ),
           ],
         ),
       ),
-      bottomNavigationBar: GuideOnBottomNav(
+      bottomNavigationBar: GuideOnPillNav(
         currentIndex: 0,
         onItemSelected: (i) {
-          if (i == 0) {
-            // Already on Chatbot; no-op
-            return;
-          } else if (i == 1) {
+          if (i == 0) return; // Already on chat
+          if (i == 1) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const BibleVersesPage()),

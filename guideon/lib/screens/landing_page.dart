@@ -9,7 +9,7 @@ class LandingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 249, 237),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
         child: SizedBox.expand(
           child: Column(
@@ -18,7 +18,7 @@ class LandingPage extends StatelessWidget {
             children: [
               const SizedBox(height: 50),
 
-              // Centered text
+              // Centered branding
               Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -33,7 +33,7 @@ class LandingPage extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 21, 77, 113),
+                      color: Color(0xFFF4A100), // warm orange like the mock
                       fontFamily: 'Coiny',
                     ),
                   ),
@@ -57,7 +57,7 @@ class LandingPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     PrimaryButton(
-                      text: "Lets get started",
+                      text: 'Lets get started',
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -69,7 +69,7 @@ class LandingPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     TransparentButton(
-                      text: "Already have an Account",
+                      text: 'Already have an Account',
                       onPressed: () {
                         Navigator.push(
                           context,

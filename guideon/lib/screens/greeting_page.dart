@@ -9,7 +9,7 @@ class GreetingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 234, 239, 239),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -26,7 +26,7 @@ class GreetingPage extends StatelessWidget {
               ),
             ),
 
-            // Greeting text above, sheep GIF centered below
+            // Greeting text above, lamb image centered below
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -37,17 +37,13 @@ class GreetingPage extends StatelessWidget {
                     constraints: const BoxConstraints(maxWidth: 260),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: const Color.fromARGB(255, 21, 77, 113),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
+                      color: const Color(0xFFAEEAD8), // mint bubble
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: const [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
+                          color: Color(0x1A000000), // subtle shadow
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
                         ),
                       ],
                     ),
@@ -55,16 +51,16 @@ class GreetingPage extends StatelessWidget {
                       "Hi ${username ?? 'Username'}! I'm Guideon!",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Color.fromARGB(255, 21, 77, 113),
+                        color: Colors.black,
                         fontWeight: FontWeight.w700,
                         fontFamily: 'Comfortaa',
                       ),
                     ),
                   ),
                   const SizedBox(height: 28),
-                  // Centered sheep GIF
+                  // Centered lamb image
                   Image.asset(
-                    'lib/assets/images/Wave.gif',
+                    'lib/assets/images/guideon_lamb.png',
                     height: 180,
                     fit: BoxFit.contain,
                   ),

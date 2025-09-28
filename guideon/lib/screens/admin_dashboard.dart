@@ -52,7 +52,7 @@ class AdminDashboardPage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFEAEFEF),
+        backgroundColor: Color(0xFFFFF9ED),
         body: Center(
           child: CircularProgressIndicator(color: Color(0xFF154D71)),
         ),
@@ -61,7 +61,7 @@ class AdminDashboardPage extends StatelessWidget {
 
     if (_userRole != 'admin' && _userRole != 'super_admin') {
       return Scaffold(
-        backgroundColor: const Color(0xFFEAEFEF),
+        backgroundColor: const Color(0xFFFFF9ED),
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -111,180 +111,233 @@ class AdminDashboardPage extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Admin Stats',
-          style: TextStyle(
-            color: Color(0xFF154D71),
-            fontFamily: 'Coiny',
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AdminProfilePage()),
-                );
-              },
-              child: const CircleAvatar(
-                radius: 18,
-                backgroundColor: Color(0xFFB0BEC5),
-                child: Icon(Icons.person, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-        centerTitle: false,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            // Row 1: Total users / Active users today
-            _StatCardRow(
-              left: StreamBuilder<int>(
-                stream: _countUsers(),
-                initialData: 0,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    // Likely Firestore permission error or network
-                    // ignore: avoid_print
-                    print('Users count error: ${snapshot.error}');
-                    return const _StatCard(
-                      title: 'Total users registered',
-                      value: '!',
-                      subtitle: 'Check Firestore rules/connection',
-                      bg: Color(0xFFD7E9FF),
-                    );
-                  }
-                  final val = (snapshot.data ?? 0).toString();
-                  return _StatCard(
-                    title: 'Total users registered',
-                    value: val,
-                    subtitle: '+ / - vs last 7 days',
-                    bg: const Color(0xFFD7E9FF),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AdminUsersListPage(),
-                        ),
+      // Have the Scaffold itself cover the entire phone with the cream background
+      backgroundColor: const Color(0xFFFFF9ED),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Admin ',
+                            style: TextStyle(
+                              color: Color(0xFFF4A100),
+                              fontFamily: 'Coiny',
+                              fontWeight: FontWeight.w900,
+                              fontSize: 32,
+                              // Faux inner shadow/embossed effect using multi-directional shadows
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.20),
+                                  offset: Offset(0, 2),
+                                  blurRadius: 3,
+                                ),
+                                Shadow(
+                                  color: Colors.white.withOpacity(0.8),
+                                  offset: Offset(-1, -1),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'Stats',
+                            style: TextStyle(
+                              color: Color(0xFF2EC4B6),
+                              fontFamily: 'Coiny',
+                              fontWeight: FontWeight.w900,
+                              fontSize: 32,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withOpacity(0.20),
+                                  offset: Offset(0, 2),
+                                  blurRadius: 3,
+                                ),
+                                Shadow(
+                                  color: Colors.white.withOpacity(0.8),
+                                  offset: Offset(-1, -1),
+                                  blurRadius: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AdminProfilePage()),
+                        );
+                      },
+                      child: const CircleAvatar(
+                        radius: 18,
+                        backgroundColor: Color(0xFFB0BEC5),
+                        child: Icon(Icons.person, color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Row 1: Total users / Active users today
+                _StatCardRow(
+                  left: StreamBuilder<int>(
+                    stream: _countUsers(),
+                    initialData: 0,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        // Likely Firestore permission error or network
+                        // ignore: avoid_print
+                        print('Users count error: ${snapshot.error}');
+                        return const _StatCard(
+                          title: 'Total users registered',
+                          value: '!',
+                          subtitle: 'Check Firestore rules/connection',
+                          bg: Color(0xFFFFF9ED),
+                          borderColor: Color(0xFFC6E7FF),
+                        );
+                      }
+                      final val = (snapshot.data ?? 0).toString();
+                      return _StatCard(
+                        title: 'Total users registered',
+                        value: val,
+                        subtitle: '+ / - vs last 7 days',
+                        bg: const Color(0xFFFFF9ED),
+                        borderColor: const Color(0xFFC6E7FF),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const AdminUsersListPage(),
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
-              right: StreamBuilder<int>(
-                stream: _countActiveToday(),
-                initialData: 0,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    // ignore: avoid_print
-                    print('Active today count error: ${snapshot.error}');
-                    return const _StatCard(
-                      title: 'Active users today',
-                      value: '!',
-                      subtitle: 'Check Firestore rules/connection',
-                      bg: Color(0xFFFFE0B2),
-                    );
-                  }
-                  final val = (snapshot.data ?? 0).toString();
-                  return _StatCard(
-                    title: 'Active users today',
-                    value: val,
-                    subtitle: '- / + vs last 7 days',
-                    bg: const Color(0xFFFFE0B2),
-                    onTap: _userRole == 'super_admin'
-                        ? () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ActiveUsersListPage(),
-                              ),
-                            );
-                          }
-                        : null,
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Row 2: Total quotes (full-width)
-            StreamBuilder<int>(
-              stream: _countQuotes(),
-              initialData: 0,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  // ignore: avoid_print
-                  print('Quotes count error: ${snapshot.error}');
-                  return const _WideStatCard(
-                    title: 'Total no. of Motivational Quotes',
-                    value: '!',
-                    subtitle: 'Check Firestore rules/connection',
-                    bg: Color(0xFFC8F5C8),
-                  );
-                }
-                final val = (snapshot.data ?? 0).toString();
-                return _WideStatCard(
-                  title: 'Total no. of Motivational Quotes',
-                  value: val,
-                  subtitle: 'View',
-                  bg: const Color(0xFFC8F5C8),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MotivationalQuotesPage(),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            // Row 3: Total verses (full-width)
-            StreamBuilder<int>(
-              stream: _countVerses(),
-              initialData: 0,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  // ignore: avoid_print
-                  print('Verses count error: ${snapshot.error}');
-                  return const _WideStatCard(
-                    title: 'Total no. of Bible Verses',
-                    value: '!',
-                    subtitle: 'Check Firestore rules/connection',
-                    bg: Color(0xFFFFF2B3),
-                  );
-                }
-                final val = (snapshot.data ?? 0).toString();
-                return _WideStatCard(
-                  title: 'Total no. of Bible Verses',
-                  value: val,
-                  subtitle: 'View',
-                  bg: const Color(0xFFFFF2B3),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const BibleVersesListPage(),
-                      ),
+                  ),
+                  right: StreamBuilder<int>(
+                    stream: _countActiveToday(),
+                    initialData: 0,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        // ignore: avoid_print
+                        print('Active today count error: ${snapshot.error}');
+                        return const _StatCard(
+                          title: 'Active users today',
+                          value: '!',
+                          subtitle: 'Check Firestore rules/connection',
+                          bg: Color(0xFFFFF9ED),
+                          borderColor: Color(0xFFFFDDAE),
+                        );
+                      }
+                      final val = (snapshot.data ?? 0).toString();
+                      return _StatCard(
+                        title: 'Active users today',
+                        value: val,
+                        subtitle: '- / + vs last 7 days',
+                        bg: const Color(0xFFFFF9ED),
+                        borderColor: const Color(0xFFFFDDAE),
+                        onTap: _userRole == 'super_admin'
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const ActiveUsersListPage(),
+                                  ),
+                                );
+                              }
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Row 2: Total quotes (full-width)
+                StreamBuilder<int>(
+                  stream: _countQuotes(),
+                  initialData: 0,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      // ignore: avoid_print
+                      print('Quotes count error: ${snapshot.error}');
+                      return const _WideStatCard(
+                        title: 'Total no. of Motivational Quotes',
+                        value: '!',
+                        subtitle: 'Check Firestore rules/connection',
+                        bg: Color(0xFFFFF9ED),
+                        borderColor: Color(0xFFC3EFB6),
+                      );
+                    }
+                    final val = (snapshot.data ?? 0).toString();
+                    return _WideStatCard(
+                      title: 'Total no. of Motivational Quotes',
+                      value: val,
+                      subtitle: 'View',
+                      bg: const Color(0xFFFFF9ED),
+                      borderColor: const Color(0xFFC3EFB6),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MotivationalQuotesPage(),
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
+                ),
+                const SizedBox(height: 16),
+                // Row 3: Total verses (full-width)
+                StreamBuilder<int>(
+                  stream: _countVerses(),
+                  initialData: 0,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      // ignore: avoid_print
+                      print('Verses count error: ${snapshot.error}');
+                      return const _WideStatCard(
+                        title: 'Total no. of Bible Verses',
+                        value: '!',
+                        subtitle: 'Check Firestore rules/connection',
+                        bg: Color(0xFFFFF9ED),
+                        borderColor: Color(0xFFFCF276),
+                      );
+                    }
+                    final val = (snapshot.data ?? 0).toString();
+                    return _WideStatCard(
+                      title: 'Total no. of Bible Verses',
+                      value: val,
+                      subtitle: 'View',
+                      bg: const Color(0xFFFFF9ED),
+                      borderColor: const Color(0xFFFCF276),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BibleVersesListPage(),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                // End of Column children
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -295,8 +348,6 @@ class _StatCardRow extends StatelessWidget {
   final Widget left;
   final Widget right;
   const _StatCardRow({required this.left, required this.right});
-
-  @override
   Widget build(BuildContext context) {
     return Row(
       children: [
@@ -313,24 +364,30 @@ class _WideStatCard extends StatelessWidget {
   final String value;
   final String subtitle;
   final Color bg;
+  final Color? borderColor;
   final VoidCallback? onTap;
+  final Widget? trailing;
   const _WideStatCard({
     required this.title,
     required this.value,
     required this.subtitle,
     required this.bg,
+    this.borderColor,
     this.onTap,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
     final content = _StatShell(
       bg: bg,
+      borderColor: borderColor,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             title,
+            textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -341,17 +398,27 @@ class _WideStatCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             value,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 36,
+              fontSize: 42,
               fontWeight: FontWeight.w900,
               color: Color(0xFF154D71),
               fontFamily: 'Coiny',
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.black54),
+          // Keep subtitle visually centered even when trailing exists
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.black54),
+              ),
+              if (trailing != null)
+                Align(alignment: Alignment.centerRight, child: trailing!),
+            ],
           ),
         ],
       ),
@@ -366,12 +433,14 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String subtitle;
   final Color bg;
+  final Color? borderColor;
   final VoidCallback? onTap;
   const _StatCard({
     required this.title,
     required this.value,
     required this.subtitle,
     required this.bg,
+    this.borderColor,
     this.onTap,
   });
 
@@ -389,11 +458,13 @@ class _StatCard extends StatelessWidget {
       onTap: onTap,
       child: _StatShell(
         bg: bg,
+        borderColor: borderColor,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
+              textAlign: TextAlign.left,
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
@@ -404,8 +475,9 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               value,
+              textAlign: TextAlign.left,
               style: const TextStyle(
-                fontSize: 36,
+                fontSize: 42,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF154D71),
                 fontFamily: 'Coiny',
@@ -414,6 +486,7 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               subtitle,
+              textAlign: TextAlign.left,
               style: const TextStyle(color: Colors.black54),
             ),
           ],
@@ -426,22 +499,24 @@ class _StatCard extends StatelessWidget {
 class _StatShell extends StatelessWidget {
   final Color bg;
   final Widget child;
-  const _StatShell({required this.bg, required this.child});
+  final Color? borderColor;
+  const _StatShell({required this.bg, required this.child, this.borderColor});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white, width: 2),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: borderColor ?? Colors.white, width: 5),
         boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),
-            blurRadius: 8,
-            offset: Offset(0, 4),
+            blurRadius: 10,
+            offset: Offset(0, 5),
           ),
         ],
       ),

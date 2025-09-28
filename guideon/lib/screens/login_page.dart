@@ -38,6 +38,17 @@ class _LoginPageState extends State<LoginPage> {
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000), // black with 10% opacity
+            offset: Offset(0, 3),
+            blurRadius: 6,
+          ),
+        ],
+      ),
       child: TextField(
         controller: controller,
         obscureText: obscureText,
@@ -55,17 +66,16 @@ class _LoginPageState extends State<LoginPage> {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.transparent),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.transparent),
           ),
           focusedBorder: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(10)),
-            borderSide:
-                BorderSide(color: Color.fromARGB(255, 21, 77, 113), width: 2),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderSide: BorderSide(color: Color(0xFF3DB5A6), width: 2),
           ),
         ),
       ),
@@ -142,7 +152,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 234, 239, 239),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -159,7 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 51, 161, 224),
+                      color: Color(0xFF3DB5A6),
                       fontFamily: 'Coiny',
                     ),
                   ),
@@ -168,7 +178,7 @@ class _LoginPageState extends State<LoginPage> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Color.fromARGB(255, 21, 77, 113),
+                      color: Color(0xFFF4A100),
                       fontFamily: 'Coiny',
                     ),
                   ),
@@ -177,7 +187,7 @@ class _LoginPageState extends State<LoginPage> {
                     'where stronger spirits start',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Color.fromARGB(255, 0, 0, 0),
+                      color: Colors.black,
                       fontFamily: 'Comfortaa',
                     ),
                   ),
@@ -194,7 +204,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 21, 77, 113),
+                    color: Color(0xFF3DB5A6),
                   ),
                 ),
               ),
@@ -213,7 +223,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 21, 77, 113),
+                    color: Color(0xFF3DB5A6),
                   ),
                 ),
               ),
@@ -245,7 +255,7 @@ class _LoginPageState extends State<LoginPage> {
                       if (value == null) return;
                       setState(() => _keepSignedIn = value);
                     },
-                    activeColor: const Color.fromARGB(255, 21, 77, 113),
+                    activeColor: const Color(0xFF3DB5A6),
                   ),
                   const Text(
                     'Keep me signed in',
@@ -269,7 +279,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Color.fromARGB(255, 51, 161, 224),
+                        color: Color(0xFF3DB5A6),
                         fontFamily: 'Coiny',
                       ),
                     ),
@@ -291,40 +301,7 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: _handleLogin,
                     ),
 
-              const SizedBox(height: 20),
-
-              // Social connect
-              const Text(
-                'You can connect with',
-                style: TextStyle(
-                  color: Color.fromARGB(255, 0, 0, 0),
-                  fontFamily: 'Comfortaa',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.network(
-                    'https://upload.wikimedia.org/wikipedia/commons/0/09/IOS_Google_icon.png',
-                    height: 30,
-                    errorBuilder: (context, error, stack) => const Icon(
-                      Icons.g_translate,
-                      color: Color.fromARGB(255, 66, 133, 244),
-                      size: 30,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  // Replaced SVG (not supported by Image) with Material icon to prevent invalid image errors
-                  const Icon(
-                    Icons.facebook,
-                    color: Color(0xFF1877F2),
-                    size: 30,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 30),
+              const SizedBox(height: 24),
 
               // Sign up link
               Row(
