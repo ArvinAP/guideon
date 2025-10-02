@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:guideon/components/buttons.dart';
-import 'package:guideon/screens/login_page.dart';
 import 'package:guideon/services/auth_service.dart';
 import 'admin_dashboard.dart';
+import 'email_verification_page.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -120,10 +120,15 @@ class _SignUpPageState extends State<SignUpPage> {
           (route) => false,
         );
       } else {
-        _showSnack('Account created. Please log in.');
+        // Send verification email (EmailVerificationPage will also trigger on load)
+        try {
+          await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+        } catch (_) {}
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const LoginPage()),
+          MaterialPageRoute(
+            builder: (_) => EmailVerificationPage(email: email),
+          ),
           (route) => false,
         );
       }

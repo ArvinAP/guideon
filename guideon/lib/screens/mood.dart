@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../components/buttons.dart';
 import 'chatbot.dart';
 
@@ -59,16 +60,20 @@ class _MoodPageState extends State<MoodPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Lamb image
-                  Image.asset(
-                    'lib/assets/images/guideon_lamb.png',
-                    height: 120,
-                    width: 120,
-                    fit: BoxFit.contain,
+                  // Lamb animation (Lottie)
+                  SizedBox(
+                    height: 140,
+                    width: 140,
+                    child: Lottie.asset(
+                      'lib/assets/images/jump.json',
+                      fit: BoxFit.contain,
+                      repeat: true,
+                      animate: true,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    constraints: const BoxConstraints(maxWidth: 240),
+                    constraints: const BoxConstraints(maxWidth: 220),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
@@ -108,6 +113,7 @@ class _MoodPageState extends State<MoodPage> {
                         icon: const Icon(Icons.arrow_left, size: 32, color: Color(0xFFF4A300)),
                         onPressed: prev,
                       ),
+                      const SizedBox(width: 20),
                       Container(
                         width: 100,
                         height: 100,
@@ -128,6 +134,7 @@ class _MoodPageState extends State<MoodPage> {
                           style: const TextStyle(fontSize: 44),
                         ),
                       ),
+                      const SizedBox(width: 20),
                       IconButton(
                         icon: const Icon(Icons.arrow_right, size: 32, color: Color(0xFFF4A300)),
                         onPressed: next,

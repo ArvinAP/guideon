@@ -93,7 +93,6 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
           selLower.toUpperCase(),                            // All caps: "HAPPY"
         ];
         q = q.where('themes', arrayContainsAny: variations);
-        debugPrint('Filtering quotes for theme variations: $variations');
       }
       
       _sub = q.snapshots().listen(
@@ -117,23 +116,15 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
               _isLoading = false;
               _errorMessage = null;
             });
-            
-            debugPrint('Quotes loaded: ${_filteredItems.length} for theme "$selLower"');
-            
-            // Don't fallback to all quotes - keep the filter strict
-            if (_filteredItems.isEmpty && selLower != 'all') {
-              debugPrint('No quotes found for theme "$selLower". Try a different theme or check your database.');
-            }
+            // Keep the filter strict even if empty
           } catch (e) {
             setState(() {
               _isLoading = false;
               _errorMessage = 'Error processing quotes: ${e.toString()}';
             });
-            debugPrint('Error processing quotes: $e');
           }
         },
         onError: (error) {
-          debugPrint('Firestore error: $error');
           setState(() {
             _isLoading = false;
             _errorMessage = 'Failed to load quotes from database: ${error.toString()}';
@@ -141,7 +132,6 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
         },
       );
     } catch (e) {
-      debugPrint('Connection error: $e');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Connection error: ${e.toString()}';
@@ -251,19 +241,19 @@ class _MotivationalQuotesPageState extends State<MotivationalQuotesPage>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Status indicator
-                    Text(
-                      _isLoading 
-                          ? 'Loading...' 
-                          : _errorMessage != null 
-                              ? 'Error - Tap card to retry'
-                              : 'Loaded: ${_filteredItems.length}',
-                      style: TextStyle(
-                        color: _errorMessage != null ? Colors.red : Colors.black54, 
-                        fontSize: 12,
-                        fontWeight: _errorMessage != null ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
+                    // Status indicator (hide count when loaded)
+                    if (_isLoading)
+                      const Text(
+                        'Loading...',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      )
+                    else if (_errorMessage != null)
+                      const Text(
+                        'Error - Tap card to retry',
+                        style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                      )
+                    else
+                      const SizedBox.shrink(),
                     const SizedBox(height: 8),
                   ],
                 ),

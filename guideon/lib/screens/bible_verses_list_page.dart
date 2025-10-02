@@ -10,18 +10,33 @@ class BibleVersesListPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF7A5C00)),
-        title: const Text(
-          'Bible Verses',
-          style: TextStyle(
-            color: Color(0xFF1E88E5),
-            fontFamily: 'Coiny',
-            fontWeight: FontWeight.w700,
-          ),
+        iconTheme: const IconThemeData(color: Colors.black87),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              'Bible',
+              style: TextStyle(
+                color: Color(0xFF2EC4B6),
+                fontFamily: 'Coiny',
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              'Verses',
+              style: TextStyle(
+                color: Color(0xFF2EC4B6),
+                fontFamily: 'Coiny',
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
       ),
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
             .collection('verses')
@@ -65,17 +80,20 @@ class BibleVersesListPage extends StatelessWidget {
                     final data = doc.data();
                     final text = (data["text"] ?? '').toString();
                     final reference = (data['reference'] ?? '').toString();
-                    final description = (data['description'] ?? '').toString();
+                    final description = (data['description'] ?? '').toString(); // legacy
+                    final List<dynamic>? existingThemesDyn = data['themes'] as List<dynamic>?;
+                    final List<String> existingThemes = existingThemesDyn?.map((e) => e.toString()).toList() ?? [];
 
                     return Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFF2B3), // bible yellow
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
+                        color: Colors.white,
+                        border: Border.all(color: Color(0xFFA5D6A7), width: 2),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
                           BoxShadow(
-                            color: Colors.black12,
+                            color: const Color(0xFFA5D6A7).withOpacity(0.35),
                             blurRadius: 6,
-                            offset: Offset(2, 3),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -99,7 +117,7 @@ class BibleVersesListPage extends StatelessWidget {
                             Text(
                               '— $reference',
                               style: const TextStyle(
-                                color: Color(0xFF7A5C00),
+                                color: Color(0xFF0B5D6B),
                                 fontStyle: FontStyle.italic,
                                 fontFamily: 'Comfortaa',
                               ),
@@ -111,39 +129,55 @@ class BibleVersesListPage extends StatelessWidget {
                             children: [
                               TextButton.icon(
                                 style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFF7A5C00),
+                                  foregroundColor: const Color(0xFF2EC4B6),
                                 ),
                                 onPressed: () async {
                                   final textCtrl =
                                       TextEditingController(text: text);
                                   final refCtrl =
                                       TextEditingController(text: reference);
-                                  final descCtrl =
-                                      TextEditingController(text: description);
+                                  const themesOptions = ['Happy','Excited','Angry','Sad','Neutral'];
+                                  // initialize multi-select from existing themes or legacy description
+                                  List<String> selectedThemes = existingThemes.isNotEmpty
+                                      ? existingThemes
+                                          .map((t) => themesOptions.firstWhere(
+                                                (o) => o.toLowerCase() == t.toLowerCase(),
+                                                orElse: () => 'Neutral',
+                                              ))
+                                          .toSet()
+                                          .toList()
+                                      : [];
+                                  if (selectedThemes.isEmpty && description.isNotEmpty) {
+                                    final descNorm = themesOptions.firstWhere(
+                                      (o) => o.toLowerCase() == description.toLowerCase(),
+                                      orElse: () => 'Neutral',
+                                    );
+                                    selectedThemes = [descNorm];
+                                  }
                                   await showDialog(
                                     context: context,
                                     builder: (ctx) => Theme(
                                       data: Theme.of(context).copyWith(
                                         dialogBackgroundColor:
-                                            const Color(0xFFFFF7D6),
+                                            const Color(0xFFEAF7EE),
                                         inputDecorationTheme:
                                             const InputDecorationTheme(
                                           focusedBorder: UnderlineInputBorder(
                                             borderSide: BorderSide(
-                                                color: Color(0xFFFFA000)),
+                                                color: Color(0xFF2EC4B6)),
                                           ),
                                         ),
                                         textButtonTheme: TextButtonThemeData(
                                           style: TextButton.styleFrom(
                                             foregroundColor:
-                                                const Color(0xFFFFA000),
+                                                const Color(0xFF2EC4B6),
                                           ),
                                         ),
                                         elevatedButtonTheme:
                                             ElevatedButtonThemeData(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
-                                                const Color(0xFFFFA000),
+                                                const Color(0xFF2EC4B6),
                                             foregroundColor: Colors.white,
                                             shape: const StadiumBorder(),
                                           ),
@@ -151,39 +185,61 @@ class BibleVersesListPage extends StatelessWidget {
                                       ),
                                       child: AlertDialog(
                                         backgroundColor:
-                                            const Color(0xFFFFF7D6),
+                                            const Color(0xFFEAF7EE),
                                         shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(20),
                                         ),
                                         title: const Text('Edit Verse'),
-                                        content: SingleChildScrollView(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              TextField(
-                                                controller: textCtrl,
-                                                decoration:
-                                                    const InputDecoration(
+                                        content: StatefulBuilder(
+                                          builder: (ctxSB, setSB) {
+                                            return SingleChildScrollView(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  TextField(
+                                                    controller: textCtrl,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                            labelText:
+                                                                'Verse text'),
+                                                    maxLines: 3,
+                                                  ),
+                                                  TextField(
+                                                    controller: refCtrl,
+                                                    decoration: const InputDecoration(
                                                         labelText:
-                                                            'Verse text'),
-                                                maxLines: 3,
+                                                            'Reference (e.g., John 3:16)'),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Align(
+                                                    alignment: Alignment.centerLeft,
+                                                    child: Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 4,
+                                                      children: [
+                                                        for (final t in themesOptions)
+                                                          FilterChip(
+                                                            label: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                                                            selected: selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase()),
+                                                            onSelected: (val) {
+                                                              setSB(() {
+                                                                final exists = selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase());
+                                                                if (val && !exists) {
+                                                                  selectedThemes.add(t);
+                                                                } else if (!val && exists) {
+                                                                  selectedThemes.removeWhere((s) => s.toLowerCase() == t.toLowerCase());
+                                                                }
+                                                              });
+                                                            },
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              TextField(
-                                                controller: refCtrl,
-                                                decoration: const InputDecoration(
-                                                    labelText:
-                                                        'Reference (e.g., John 3:16)'),
-                                              ),
-                                              TextField(
-                                                controller: descCtrl,
-                                                decoration: const InputDecoration(
-                                                    labelText:
-                                                        'Description/Meaning (optional, stored only)'),
-                                                maxLines: 3,
-                                              ),
-                                            ],
-                                          ),
+                                            );
+                                          },
                                         ),
                                         actions: [
                                           TextButton(
@@ -196,8 +252,6 @@ class BibleVersesListPage extends StatelessWidget {
                                                   textCtrl.text.trim();
                                               final newRef =
                                                   refCtrl.text.trim();
-                                              final newDesc =
-                                                  descCtrl.text.trim();
                                               if (newText.isEmpty) {
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(
@@ -208,10 +262,16 @@ class BibleVersesListPage extends StatelessWidget {
                                                 return;
                                               }
                                               try {
+                                                if (selectedThemes.isEmpty) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Select at least one theme')),
+                                                  );
+                                                  return;
+                                                }
                                                 await doc.reference.update({
                                                   'text': newText,
                                                   'reference': newRef,
-                                                  'description': newDesc,
+                                                  'themes': selectedThemes,
                                                 });
                                                 if (ctx.mounted)
                                                   Navigator.pop(ctx);
@@ -304,66 +364,82 @@ class BibleVersesListPage extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFFFA000),
+        backgroundColor: const Color(0xFF2EC4B6),
         foregroundColor: Colors.white,
         onPressed: () async {
           final textController = TextEditingController();
           final refController = TextEditingController();
-          final descController = TextEditingController();
+          const themesOptions = ['Happy','Excited','Angry','Sad','Neutral'];
+          List<String> selectedThemes = [];
           await showDialog(
             context: context,
             builder: (ctx) => Theme(
               data: Theme.of(context).copyWith(
-                dialogBackgroundColor:
-                    const Color(0xFFFFF7D6), // light amber tint
+                dialogBackgroundColor: const Color(0xFFEAF7EE),
                 inputDecorationTheme: const InputDecorationTheme(
                   focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFFFA000)),
+                    borderSide: BorderSide(color: Color(0xFF2EC4B6)),
                   ),
                 ),
                 textButtonTheme: TextButtonThemeData(
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFFFFA000),
+                    foregroundColor: const Color(0xFF2EC4B6),
                   ),
                 ),
                 elevatedButtonTheme: ElevatedButtonThemeData(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFA000),
+                    backgroundColor: const Color(0xFF2EC4B6),
                     foregroundColor: Colors.white,
                     shape: const StadiumBorder(),
                   ),
                 ),
               ),
               child: AlertDialog(
-                backgroundColor: const Color(0xFFFFF7D6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
                 title: const Text('Add Verse'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: textController,
-                        decoration:
-                            const InputDecoration(labelText: 'Verse text'),
-                        maxLines: 3,
+                content: StatefulBuilder(
+                  builder: (ctxSB, setSB) {
+                    return SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: textController,
+                            decoration: const InputDecoration(labelText: 'Verse text'),
+                            maxLines: 3,
+                          ),
+                          TextField(
+                            controller: refController,
+                            decoration: const InputDecoration(labelText: 'Reference (e.g., John 3:16)'),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                for (final t in themesOptions)
+                                  FilterChip(
+                                    label: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                                    selected: selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase()),
+                                    onSelected: (val) {
+                                      setSB(() {
+                                        final exists = selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase());
+                                        if (val && !exists) {
+                                          selectedThemes.add(t);
+                                        } else if (!val && exists) {
+                                          selectedThemes.removeWhere((s) => s.toLowerCase() == t.toLowerCase());
+                                        }
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      TextField(
-                        controller: refController,
-                        decoration: const InputDecoration(
-                            labelText: 'Reference (e.g., John 3:16)'),
-                      ),
-                      TextField(
-                        controller: descController,
-                        decoration: const InputDecoration(
-                            labelText:
-                                'Description/Meaning (optional, stored only)'),
-                        maxLines: 3,
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 actions: [
                   TextButton(
@@ -374,23 +450,27 @@ class BibleVersesListPage extends StatelessWidget {
                     onPressed: () async {
                       final text = textController.text.trim();
                       final reference = refController.text.trim();
-                      final description = descController.text.trim();
                       if (text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Please enter verse text')),
+                          const SnackBar(content: Text('Please enter verses text')),
                         );
                         return;
                       }
                       try {
+                        if (selectedThemes.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Select at least one theme')),
+                          );
+                          return;
+                        }
                         await FirebaseFirestore.instance
                             .collection('verses')
                             .add({
-                          'text': text,
-                          'reference': reference,
-                          'description': description,
-                          'createdAt': FieldValue.serverTimestamp(),
-                        });
+                              'text': text,
+                              'reference': reference,
+                              'themes': selectedThemes,
+                              'createdAt': FieldValue.serverTimestamp(),
+                            });
                         if (ctx.mounted) Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Verse added')),
@@ -410,6 +490,7 @@ class BibleVersesListPage extends StatelessWidget {
         },
         child: const Icon(Icons.add),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 }

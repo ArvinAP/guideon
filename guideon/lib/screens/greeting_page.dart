@@ -1,13 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import '../components/buttons.dart';
 import 'mood.dart';
 
-class GreetingPage extends StatelessWidget {
+class GreetingPage extends StatefulWidget {
   final String? username;
   const GreetingPage({super.key, this.username});
 
   @override
+  State<GreetingPage> createState() => _GreetingPageState();
+}
+
+class _GreetingPageState extends State<GreetingPage> {
+  String? _resolvedUsername;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUsernameIfNeeded();
+  }
+
+  Future<void> _loadUsernameIfNeeded() async {
+    if (widget.username != null && widget.username!.trim().isNotEmpty) {
+      setState(() => _resolvedUsername = widget.username!.trim());
+      return;
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      // Not signed in; fallback generic greeting
+      setState(() => _resolvedUsername = null);
+      return;
+    }
+    try {
+      final profile = await AuthService.getUserProfile(user.uid);
+      final uname = (profile?['username'] as String?)?.trim();
+      final first = (profile?['firstName'] as String?)?.trim();
+      final last = (profile?['lastName'] as String?)?.trim();
+      final full = [first, last].where((s) => (s ?? '').isNotEmpty).join(' ');
+      final display = uname?.isNotEmpty == true
+          ? uname
+          : (full.isNotEmpty
+              ? full
+              : (user.displayName?.trim().isNotEmpty == true
+                  ? user.displayName!.trim()
+                  : null));
+      setState(() => _resolvedUsername = display);
+    } catch (_) {
+      setState(() => _resolvedUsername = null);
+    } finally {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final name = _resolvedUsername ?? widget.username;
     return Scaffold(
       backgroundColor: const Color(0xFFFFF9ED),
       body: SafeArea(
@@ -48,7 +94,7 @@ class GreetingPage extends StatelessWidget {
                       ],
                     ),
                     child: Text(
-                      "Hi ${username ?? 'Username'}! I'm Guideon!",
+                      "Hi ${name ?? 'there'}! I'm Guideon!",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: Colors.black,
@@ -78,7 +124,7 @@ class GreetingPage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => MoodPage(username: username),
+                        builder: (_) => MoodPage(username: name),
                       ),
                     );
                   },

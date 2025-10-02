@@ -3,10 +3,11 @@ import '../models/journal_entry.dart';
 import '../services/journal_repository.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+// Using base64 storage in Firestore (similar to edit_profile) instead of Firebase Storage URLs
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:typed_data';
+import 'dart:convert';
 
 class JournalEditorPage extends StatefulWidget {
   final JournalEntry? entry; // if null -> creating new
@@ -14,6 +15,15 @@ class JournalEditorPage extends StatefulWidget {
 
   @override
   State<JournalEditorPage> createState() => _JournalEditorPageState();
+}
+
+// Simple data holder for draggable stickers
+class _Sticker {
+  String id; // emoji or small label
+  double x; // 0..1 relative to card width
+  double y; // 0..1 relative to card height
+  double scale;
+  _Sticker({required this.id, required this.x, required this.y, required this.scale});
 }
 
 class _JournalEditorPageState extends State<JournalEditorPage> {
@@ -31,6 +41,9 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
   // For Web previews/uploads, cache bytes of newly picked images
   final Map<String, Uint8List> _newImageBytes = {}; // key -> bytes
 
+  // Stickers (draggable)
+  final List<_Sticker> _stickers = []; // persisted as JSON in JournalEntry.stickers
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +55,23 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
       _bodyCtrl.text = e.body;
       _cardColor = e.cardColor;
       _imageUrls.addAll(e.imagePaths);
+      // Load stickers from entry (JSON strings or plain emoji fallbacks)
+      for (final s in e.stickers) {
+        try {
+          final m = jsonDecode(s);
+          _stickers.add(_Sticker(
+            id: m['id'] ?? (m['emoji'] ?? '⭐️'),
+            x: (m['x'] as num?)?.toDouble() ?? 0.5,
+            y: (m['y'] as num?)?.toDouble() ?? 0.5,
+            scale: (m['scale'] as num?)?.toDouble() ?? 1.0,
+          ));
+        } catch (_) {
+          // If it's just an emoji string, place it near center
+          if (s.isNotEmpty) {
+            _stickers.add(_Sticker(id: s, x: 0.5, y: 0.4, scale: 1.0));
+          }
+        }
+      }
     } else {
       _date = DateTime.now();
     }
@@ -133,9 +163,47 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
   }
 
   void _addSticker() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sticker picker coming soon')),
+    _showStickerPicker();
+  }
+
+  void _showStickerPicker() async {
+    final choices = [
+      '⭐️','🌟','✨','💖','🌸','🌼','🍀','🔥','🎯','🎈','🎵','🎨','💡','👍','🙏','😊','😄','😎','🥰','🤗'
+    ];
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: choices
+                .map((e) => GestureDetector(
+                      onTap: () => Navigator.pop(_, e),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDBF1F5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF2E7AA1)),
+                        ),
+                        child: Text(e, style: const TextStyle(fontSize: 24)),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+      ),
     );
+    if (picked != null && picked.isNotEmpty) {
+      setState(() {
+        _stickers.add(_Sticker(id: picked, x: 0.5, y: 0.5, scale: 1.0));
+      });
+    }
   }
 
   Future<void> _addImages() async {
@@ -211,33 +279,21 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
 
     final entryId = e?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
-    Future<List<String>> uploadNewImages() async {
+    Future<List<String>> embedNewImagesAsBase64() async {
       if (_newImages.isEmpty) return const [];
-      final storage = firebase_storage.FirebaseStorage.instance;
-      final List<String> urls = [];
+      final List<String> b64s = [];
       for (final img in _newImages) {
-        final fileName = DateTime.now().microsecondsSinceEpoch.toString();
-        final ref = storage
-            .ref()
-            .child('users/${user.uid}/journals/$entryId/$fileName.jpg');
-        if (kIsWeb) {
+        try {
           final key = _keyForImage(x: img);
           final bytes = _newImageBytes[key] ?? await img.readAsBytes();
-          await ref.putData(
-            bytes,
-            firebase_storage.SettableMetadata(contentType: 'image/jpeg'),
-          );
-        } else {
-          final file = File(img.path);
-          await ref.putFile(
-            file,
-            firebase_storage.SettableMetadata(contentType: 'image/jpeg'),
-          );
+          // Store as pure base64 string (no data URI prefix), consistent with edit_profile
+          final b64 = base64Encode(bytes);
+          b64s.add(b64);
+        } catch (_) {
+          // skip problematic image
         }
-        final url = await ref.getDownloadURL();
-        urls.add(url);
       }
-      return urls;
+      return b64s;
     }
 
     () async {
@@ -245,7 +301,7 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
         const SnackBar(content: Text('Saving journal...')),
       );
 
-      final uploaded = await uploadNewImages();
+      final uploaded = await embedNewImagesAsBase64();
       final combinedImages = [..._imageUrls, ...uploaded];
 
       final newEntry = JournalEntry(
@@ -256,7 +312,7 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
         body: _bodyCtrl.text.trim(),
         cardColor: _cardColor,
         imagePaths: combinedImages,
-        stickers: e?.stickers ?? const [],
+        stickers: _serializeStickers(),
       );
 
       if (e == null) {
@@ -313,7 +369,7 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
               ),
             ),
 
-            // Editor card
+            // Editor card with draggable stickers overlay
             Expanded(
               child: Container(
                 margin: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -329,11 +385,19 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                     )
                   ],
                 ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 12, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final w = constraints.maxWidth;
+                    final h = constraints.maxHeight;
+                    return Stack(
+                      children: [
+                        // Scrollable content
+                        Positioned.fill(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(16, 16, 12, 120),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -424,8 +488,21 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                           children: [
                             ..._imageUrls.map((u) {
                               final keyId = _keyForImage(url: u);
+                              ImageProvider? provider;
+                              try {
+                                if (u.startsWith('http')) {
+                                  provider = NetworkImage(u);
+                                } else {
+                                  // treat as base64-encoded jpeg/png
+                                  final bytes = base64Decode(u);
+                                  provider = MemoryImage(bytes);
+                                }
+                              } catch (_) {
+                                provider = null;
+                              }
+                              if (provider == null) return const SizedBox.shrink();
                               return _resizableImageTile(
-                                image: NetworkImage(u),
+                                image: provider,
                                 keyId: keyId,
                                 onRemove: () {
                                   setState(() {
@@ -474,8 +551,58 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Draggable stickers overlay (relative to card size)
+                        ..._stickers.asMap().entries.map((e) {
+                          final i = e.key;
+                          final st = e.value;
+                          final dx = (st.x * w).clamp(0.0, w);
+                          final dy = (st.y * h).clamp(0.0, h);
+                          return Positioned(
+                            left: dx - 16,
+                            top: dy - 16,
+                            child: GestureDetector(
+                              onPanUpdate: (details) {
+                                setState(() {
+                                  st.x = ((st.x * w + details.delta.dx) / w).clamp(0.0, 1.0);
+                                  st.y = ((st.y * h + details.delta.dy) / h).clamp(0.0, 1.0);
+                                });
+                              },
+                              onPanEnd: (_) {
+                                // If dragged to the very bottom area, remove the sticker
+                                if (st.y >= 0.95) {
+                                  setState(() {
+                                    _stickers.removeAt(i);
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Sticker removed')),
+                                  );
+                                }
+                              },
+                              onLongPress: () {
+                                // remove on long press
+                                setState(() => _stickers.removeAt(i));
+                              },
+                              child: Transform.scale(
+                                scale: st.scale,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.6),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(st.id, style: const TextStyle(fontSize: 24)),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -490,6 +617,18 @@ class _JournalEditorPageState extends State<JournalEditorPage> {
       'January','February','March','April','May','June','July','August','September','October','November','December'
     ];
     return '${months[d.month - 1]} ${d.year}';
+  }
+
+  // Serialize stickers for persistence in Firestore as List<String> (each item is JSON)
+  List<String> _serializeStickers() {
+    return _stickers
+        .map((s) => jsonEncode({
+              'id': s.id,
+              'x': s.x,
+              'y': s.y,
+              'scale': s.scale,
+            }))
+        .toList();
   }
 
   Widget _circleButton({required IconData icon, required VoidCallback onTap}) {

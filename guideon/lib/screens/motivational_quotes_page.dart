@@ -10,18 +10,33 @@ class MotivationalQuotesPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF154D71)),
-        title: const Text(
-          'Motivational Quotes',
-          style: TextStyle(
-            color: Color(0xFF1E88E5),
-            fontFamily: 'Coiny',
-            fontWeight: FontWeight.w700,
-          ),
+        iconTheme: const IconThemeData(color: Colors.black87),
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              'Motivational',
+              style: TextStyle(
+                color: Color(0xFF2EC4B6),
+                fontFamily: 'Coiny',
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            Text(
+              'Quotes',
+              style: TextStyle(
+                color: Color(0xFF2EC4B6),
+                fontFamily: 'Coiny',
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
         ),
         centerTitle: true,
       ),
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance
             .collection('quotes')
@@ -65,19 +80,20 @@ class MotivationalQuotesPage extends StatelessWidget {
                     final data = doc.data();
                     final text = (data['text'] ?? '').toString();
                     final author = (data['author'] ?? '').toString();
-                    final description = (data['description'] ?? '').toString();
+                    final description = (data['description'] ?? '').toString(); // legacy
+                    final List<dynamic>? existingThemesDyn = data['themes'] as List<dynamic>?;
+                    final List<String> existingThemes = existingThemesDyn?.map((e) => e.toString()).toList() ?? [];
 
                     return Container(
                       decoration: BoxDecoration(
-                        color: const Color(
-                            0xFFC8E6C9), // light green like screenshot
-                        border: Border.all(color: Colors.white70, width: 2),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
+                        color: Colors.white,
+                        border: Border.all(color: Color(0xFFA5D6A7), width: 2),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
                           BoxShadow(
-                            color: Colors.black12,
+                            color: const Color(0xFFA5D6A7).withOpacity(0.35),
                             blurRadius: 6,
-                            offset: Offset(2, 3),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -113,15 +129,31 @@ class MotivationalQuotesPage extends StatelessWidget {
                             children: [
                               TextButton.icon(
                                 style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFF0B5D6B),
+                                  foregroundColor: const Color(0xFF2EC4B6),
                                 ),
                                 onPressed: () async {
                                   final textCtrl =
                                       TextEditingController(text: text);
                                   final authorCtrl =
                                       TextEditingController(text: author);
-                                  final descCtrl =
-                                      TextEditingController(text: description);
+                                  const themesOptions = ['Happy','Excited','Angry','Sad','Neutral'];
+                                  // Initialize multi-select from existing doc themes or legacy description
+                                  List<String> selectedThemes = existingThemes.isNotEmpty
+                                      ? existingThemes
+                                          .map((t) => themesOptions.firstWhere(
+                                                (o) => o.toLowerCase() == t.toLowerCase(),
+                                                orElse: () => 'Neutral',
+                                              ))
+                                          .toSet()
+                                          .toList()
+                                      : [];
+                                  if (selectedThemes.isEmpty && description.isNotEmpty) {
+                                    final descNorm = themesOptions.firstWhere(
+                                      (o) => o.toLowerCase() == description.toLowerCase(),
+                                      orElse: () => 'Neutral',
+                                    );
+                                    selectedThemes = [descNorm];
+                                  }
                                   await showDialog(
                                     context: context,
                                     builder: (ctx) => Theme(
@@ -132,20 +164,20 @@ class MotivationalQuotesPage extends StatelessWidget {
                                             const InputDecorationTheme(
                                           focusedBorder: UnderlineInputBorder(
                                             borderSide: BorderSide(
-                                                color: Color(0xFF0B5D6B)),
+                                                color: Color(0xFF2EC4B6)),
                                           ),
                                         ),
                                         textButtonTheme: TextButtonThemeData(
                                           style: TextButton.styleFrom(
                                             foregroundColor:
-                                                const Color(0xFF0B5D6B),
+                                                const Color(0xFF2EC4B6),
                                           ),
                                         ),
                                         elevatedButtonTheme:
                                             ElevatedButtonThemeData(
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
-                                                const Color(0xFF0B5D6B),
+                                                const Color(0xFF2EC4B6),
                                             foregroundColor: Colors.white,
                                             shape: const StadiumBorder(),
                                           ),
@@ -159,34 +191,56 @@ class MotivationalQuotesPage extends StatelessWidget {
                                               BorderRadius.circular(20),
                                         ),
                                         title: const Text('Edit Quote'),
-                                        content: SingleChildScrollView(
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              TextField(
-                                                controller: textCtrl,
-                                                decoration:
-                                                    const InputDecoration(
-                                                        labelText:
-                                                            'Quote text'),
-                                                maxLines: 3,
+                                        content: StatefulBuilder(
+                                          builder: (ctxSB, setSB) {
+                                            return SingleChildScrollView(
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  TextField(
+                                                    controller: textCtrl,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                            labelText:
+                                                                'Quote text'),
+                                                    maxLines: 3,
+                                                  ),
+                                                  TextField(
+                                                    controller: authorCtrl,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                            labelText:
+                                                                'Author (optional)'),
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Align(
+                                                    alignment: Alignment.centerLeft,
+                                                    child: Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 4,
+                                                      children: [
+                                                        for (final t in themesOptions)
+                                                          FilterChip(
+                                                            selected: selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase()),
+                                                            label: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                                                            onSelected: (val) {
+                                                              setSB(() {
+                                                                final exists = selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase());
+                                                                if (val && !exists) {
+                                                                  selectedThemes.add(t);
+                                                                } else if (!val && exists) {
+                                                                  selectedThemes.removeWhere((s) => s.toLowerCase() == t.toLowerCase());
+                                                                }
+                                                              });
+                                                            },
+                                                          ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                              TextField(
-                                                controller: authorCtrl,
-                                                decoration:
-                                                    const InputDecoration(
-                                                        labelText:
-                                                            'Author (optional)'),
-                                              ),
-                                              TextField(
-                                                controller: descCtrl,
-                                                decoration: const InputDecoration(
-                                                    labelText:
-                                                        'Description/Meaning (optional, stored only)'),
-                                                maxLines: 3,
-                                              ),
-                                            ],
-                                          ),
+                                            );
+                                          },
                                         ),
                                         actions: [
                                           TextButton(
@@ -199,8 +253,6 @@ class MotivationalQuotesPage extends StatelessWidget {
                                                   textCtrl.text.trim();
                                               final newAuthor =
                                                   authorCtrl.text.trim();
-                                              final newDesc =
-                                                  descCtrl.text.trim();
                                               if (newText.isEmpty) {
                                                 ScaffoldMessenger.of(context)
                                                     .showSnackBar(
@@ -211,10 +263,16 @@ class MotivationalQuotesPage extends StatelessWidget {
                                                 return;
                                               }
                                               try {
+                                                if (selectedThemes.isEmpty) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Select at least one theme')),
+                                                  );
+                                                  return;
+                                                }
                                                 await doc.reference.update({
                                                   'text': newText,
                                                   'author': newAuthor,
-                                                  'description': newDesc,
+                                                  'themes': selectedThemes,
                                                 });
                                                 if (ctx.mounted)
                                                   Navigator.pop(ctx);
@@ -307,12 +365,13 @@ class MotivationalQuotesPage extends StatelessWidget {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF0B5D6B), // teal to complement card
+        backgroundColor: const Color(0xFF2EC4B6), // theme teal
         foregroundColor: Colors.white,
         onPressed: () async {
           final textController = TextEditingController();
           final authorController = TextEditingController();
-          final descController = TextEditingController();
+          const themesOptions = ['Happy','Excited','Angry','Sad','Neutral'];
+          List<String> selectedThemes = [];
           await showDialog(
             context: context,
             builder: (ctx) => Theme(
@@ -321,17 +380,17 @@ class MotivationalQuotesPage extends StatelessWidget {
                     const Color(0xFFEAF7EE), // light green tint
                 inputDecorationTheme: const InputDecorationTheme(
                   focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFF0B5D6B)),
+                    borderSide: BorderSide(color: Color(0xFF2EC4B6)),
                   ),
                 ),
                 textButtonTheme: TextButtonThemeData(
                   style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF0B5D6B),
+                    foregroundColor: const Color(0xFF2EC4B6),
                   ),
                 ),
                 elevatedButtonTheme: ElevatedButtonThemeData(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B5D6B),
+                    backgroundColor: const Color(0xFF2EC4B6),
                     foregroundColor: Colors.white,
                     shape: const StadiumBorder(),
                   ),
@@ -344,30 +403,52 @@ class MotivationalQuotesPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 title: const Text('Add Quote'),
-                content: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: textController,
-                        decoration:
-                            const InputDecoration(labelText: 'Quote text'),
-                        maxLines: 3,
+                content: StatefulBuilder(
+                  builder: (ctxSB, setSB) {
+                    return SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: textController,
+                            decoration:
+                                const InputDecoration(labelText: 'Quote text'),
+                            maxLines: 3,
+                          ),
+                          TextField(
+                            controller: authorController,
+                            decoration: const InputDecoration(
+                                labelText: 'Author (optional)'),
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                for (final t in themesOptions)
+                                  FilterChip(
+                                    selected: selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase()),
+                                    label: Text(t, style: const TextStyle(fontFamily: 'Comfortaa')),
+                                    onSelected: (val) {
+                                      setSB(() {
+                                        final exists = selectedThemes.any((s) => s.toLowerCase() == t.toLowerCase());
+                                        if (val && !exists) {
+                                          selectedThemes.add(t);
+                                        } else if (!val && exists) {
+                                          selectedThemes.removeWhere((s) => s.toLowerCase() == t.toLowerCase());
+                                        }
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      TextField(
-                        controller: authorController,
-                        decoration: const InputDecoration(
-                            labelText: 'Author (optional)'),
-                      ),
-                      TextField(
-                        controller: descController,
-                        decoration: const InputDecoration(
-                            labelText:
-                                'Description/Meaning (optional, stored only)'),
-                        maxLines: 3,
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
                 actions: [
                   TextButton(
@@ -378,7 +459,6 @@ class MotivationalQuotesPage extends StatelessWidget {
                     onPressed: () async {
                       final text = textController.text.trim();
                       final author = authorController.text.trim();
-                      final description = descController.text.trim();
                       if (text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -387,12 +467,18 @@ class MotivationalQuotesPage extends StatelessWidget {
                         return;
                       }
                       try {
+                        if (selectedThemes.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Select at least one theme')),
+                          );
+                          return;
+                        }
                         await FirebaseFirestore.instance
                             .collection('quotes')
                             .add({
                           'text': text,
                           'author': author,
-                          'description': description,
+                          'themes': selectedThemes,
                           'createdAt': FieldValue.serverTimestamp(),
                         });
                         if (ctx.mounted) Navigator.pop(ctx);
@@ -414,6 +500,7 @@ class MotivationalQuotesPage extends StatelessWidget {
         },
         child: const Icon(Icons.add),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
     );
   }
 }

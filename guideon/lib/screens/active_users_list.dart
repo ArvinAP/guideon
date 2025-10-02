@@ -48,6 +48,7 @@ class ActiveUsersListPage extends StatelessWidget {
     });
   }
 
+  // Formats a Firestore Timestamp into a short relative string (e.g., "5m ago").
   String _formatTimestamp(Timestamp timestamp) {
     final date = timestamp.toDate();
     final now = DateTime.now();
@@ -67,27 +68,63 @@ class ActiveUsersListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'Active Users Today',
-          style: TextStyle(
-            color: Color(0xFF154D71),
-            fontFamily: 'Coiny',
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        iconTheme: const IconThemeData(color: Color(0xFF154D71)),
-      ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
+      backgroundColor: const Color(0xFFFFF9ED),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Custom header with back button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black87),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+            ),
+            // Two-line title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: const [
+                  SizedBox(height: 4),
+                  Text(
+                    'Active Users',
+                    style: TextStyle(
+                      color: Color(0xFF2EC4B6),
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Coiny',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Today',
+                    style: TextStyle(
+                      color: Color(0xFFF4A100),
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Coiny',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 12),
+                ],
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
         stream: _getActiveUsersToday(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF154D71)),
+              child: CircularProgressIndicator(color: Color(0xFF2EC4B6)),
             );
           }
 
@@ -96,17 +133,11 @@ class ActiveUsersListPage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red,
-                  ),
-                  const SizedBox(height: 16),
                   Text(
                     'Error loading active users',
                     style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey[600],
+                      fontSize: 16,
+                      color: Colors.black87,
                       fontFamily: 'Comfortaa',
                     ),
                   ),
@@ -114,8 +145,8 @@ class ActiveUsersListPage extends StatelessWidget {
                   Text(
                     snapshot.error.toString(),
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[500],
+                      fontSize: 12,
+                      color: Colors.black54,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -127,145 +158,85 @@ class ActiveUsersListPage extends StatelessWidget {
           final activeUsers = snapshot.data ?? [];
 
           if (activeUsers.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.people_outline,
-                    size: 64,
-                    color: Color(0xFF154D71),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No Active Users Today',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[600],
-                      fontFamily: 'Coiny',
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No users have been active today yet.',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[500],
-                      fontFamily: 'Comfortaa',
-                    ),
-                  ),
-                ],
+            return const Center(
+              child: Text(
+                'No active users today.',
+                style: TextStyle(fontFamily: 'Comfortaa', color: Colors.black87),
               ),
             );
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             itemCount: activeUsers.length,
             itemBuilder: (context, index) {
               final user = activeUsers[index];
-              final lastUpdated = user['lastUpdated'] as Timestamp;
+              final ts = user['lastUpdated'] as Timestamp?;
+              final chipText = ts != null
+                  ? 'Active ${_formatTimestamp(ts)}'
+                  : 'Active recently';
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE0E0E0)),
-                  boxShadow: const [
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Color(0xFFFFE0B2), width: 2),
+                  boxShadow: [
                     BoxShadow(
-                      color: Color(0x1A000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
+                      color: const Color(0xFFF4A100).withOpacity(0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        user['role'] == 'admin' || user['role'] == 'super_admin'
-                            ? const Color(0xFF154D71)
-                            : const Color(0xFFB0BEC5),
-                    child: Text(
-                      user['displayName'][0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  leading: const CircleAvatar(
+                    backgroundColor: Color(0xFFE0E0E0),
+                    child: Icon(Icons.person, color: Colors.black54),
                   ),
                   title: Text(
-                    user['displayName'],
+                    (user['displayName'] as String?)?.isNotEmpty == true
+                        ? user['displayName']
+                        : 'Username',
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w600,
                       fontSize: 16,
-                      color: Color(0xFF154D71),
+                      fontFamily: 'Comfortaa',
                     ),
                   ),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user['email'],
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 14,
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFE0E0E0),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        chipText,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                          fontFamily: 'Comfortaa',
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: user['role'] == 'admin' ||
-                                      user['role'] == 'super_admin'
-                                  ? const Color(0xFF154D71)
-                                  : const Color(0xFFE0E0E0),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              user['role'].toUpperCase(),
-                              style: TextStyle(
-                                color: user['role'] == 'admin' ||
-                                        user['role'] == 'super_admin'
-                                    ? Colors.white
-                                    : Colors.grey[700],
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Active ${_formatTimestamp(lastUpdated)}',
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-                  trailing: Icon(
-                    Icons.circle,
-                    color: const Color(0xFF4CAF50),
-                    size: 12,
-                  ),
+                  // trailing online indicator if needed
+                  trailing: const Icon(Icons.circle, color: Color(0xFF4CAF50), size: 12),
                 ),
               );
             },
           );
         },
+      ),
+            ),
+          ],
+        ),
       ),
     );
   }

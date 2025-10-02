@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../components/bottom_nav.dart';
@@ -34,13 +36,69 @@ class _DashboardPageState extends State<DashboardPage> {
   bool _chatbotAttemptedToday =
       false; // prevent repeated launches in one session
   String _userRole = 'user'; // Default to user role
-  bool _showTaskTips = true; // Controls the visibility of the how-to popup
   String? _photoUrl; // User profile photo URL
+  Uint8List? _embeddedPhotoBytes; // Base64-embedded avatar
 
   @override
   void initState() {
     super.initState();
     _initializeData();
+  }
+
+  // Show instructions for completing Daily Tasks
+  void _showDailyTasksInfo() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                'How to finish Daily Tasks',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: accentBlue,
+                  fontFamily: 'Coiny',
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                '• Tap any tile to open its page and complete it.\n'
+                '• Finish all 6 tasks today (Journal, Bible, Quote, Streak Pet, Chatbot, Mood).\n'
+                '• Complete all tasks before midnight to maintain your streak!',
+                style: TextStyle(fontFamily: 'Comfortaa', color: Colors.black87),
+              ),
+              SizedBox(height: 14),
+              Text(
+                'Benefits for your Streak Pet',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: accentBlue,
+                  fontFamily: 'Coiny',
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                '• Completing all tasks adds +1 to your streak.\n'
+                '• Each completed day gives +10 pet points.\n'
+                '• Your pet levels up every 100 points.\n'
+                '• Missing a day resets your streak to 0!',
+                style: TextStyle(fontFamily: 'Comfortaa', color: Colors.black87),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _initializeData() async {
@@ -55,6 +113,15 @@ class _DashboardPageState extends State<DashboardPage> {
       final profileData = await AuthService.getUserProfile(user.uid);
       final role = profileData?['role'] ?? 'user';
       final String? photoUrl = (profileData?['photoUrl'] as String?)?.trim();
+      final String? photoData = (profileData?['photoData'] as String?)?.trim();
+      Uint8List? embeddedBytes;
+      if (photoData != null && photoData.isNotEmpty) {
+        try {
+          embeddedBytes = base64Decode(photoData);
+        } catch (_) {
+          embeddedBytes = null;
+        }
+      }
 
       // Get or initialize user progress from Firestore
       Map<String, dynamic>? progressData =
@@ -88,6 +155,7 @@ class _DashboardPageState extends State<DashboardPage> {
         userProgress = updatedProgress;
         _userRole = role.toString();
         _photoUrl = (photoUrl != null && photoUrl.isNotEmpty) ? photoUrl : null;
+        _embeddedPhotoBytes = embeddedBytes;
         _updateDailyTasks(updatedProgress);
       });
       
@@ -280,25 +348,36 @@ class _DashboardPageState extends State<DashboardPage> {
                         );
                       }
                     },
-                    child: _photoUrl != null && _photoUrl!.isNotEmpty
-                        ? CircleAvatar(
-                            radius: 20,
-                            backgroundColor: Colors.grey[300],
-                            backgroundImage: NetworkImage(_photoUrl!),
-                          )
-                        : Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[400],
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
+                    child: (() {
+                      final hasEmbedded = _embeddedPhotoBytes != null && _embeddedPhotoBytes!.isNotEmpty;
+                      final hasUrl = _photoUrl != null && _photoUrl!.isNotEmpty;
+                      if (hasEmbedded) {
+                        return CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: MemoryImage(_embeddedPhotoBytes!),
+                        );
+                      } else if (hasUrl) {
+                        return CircleAvatar(
+                          radius: 20,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: NetworkImage(_photoUrl!),
+                        );
+                      }
+                      return Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      );
+                    })(),
                   ),
                 ],
               ),
@@ -418,95 +497,30 @@ class _DashboardPageState extends State<DashboardPage> {
 
               const SizedBox(height: 32),
 
-              // Daily Tasks Section - original structure
-              const Text(
-                'Daily Tasks',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: accentBlue,
-                  fontFamily: 'Coiny',
-                ),
+              // Daily Tasks Section - with info icon to show instructions
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Daily Tasks',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: accentBlue,
+                      fontFamily: 'Coiny',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: _showDailyTasksInfo,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.info_outline, color: accentBlue, size: 20),
+                    ),
+                  ),
+                ],
               ),
-              if (_showTaskTips) ...[
-                const SizedBox(height: 10),
-                Stack(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF9ED),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Color(0xFFC3EFB6), width: 2),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x22000000),
-                            blurRadius: 6,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.fromLTRB(14, 14, 48, 14),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'How to finish Daily Tasks',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: accentBlue,
-                              fontFamily: 'Coiny',
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            '• Tap any tile to open its page and complete it.\n'
-                            '• Finish all 6 tasks today (Journal, Bible, Quote, Streak Pet, Chatbot, Mood).\n'
-                            '• Complete all tasks before midnight to maintain your streak!',
-                            style: TextStyle(
-                                fontFamily: 'Comfortaa', color: Colors.black87),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Benefits for your Streak Pet',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: accentBlue,
-                              fontFamily: 'Coiny',
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            '• Completing all tasks adds +1 to your streak.\n'
-                            '• Each completed day gives +10 pet points.\n'
-                            '• Your pet levels up every 100 points.\n'
-                            '• Missing a day resets your streak to 0!',
-                            style: TextStyle(
-                                fontFamily: 'Comfortaa', color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          setState(() => _showTaskTips = false);
-                        },
-                        child: const CircleAvatar(
-                          radius: 14,
-                          backgroundColor: Color(0xFFC3EFB6),
-                          child: Icon(Icons.close, size: 16, color: Color(0xFF154D71)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
               const SizedBox(height: 16),
               StreamBuilder<DailyTasks>(
                 stream: DailyTasksService.instance.watchToday(),
@@ -889,37 +903,6 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (_) {
       // Swallow errors to keep dashboard resilient
-    }
-  }
-
-  Future<void> _loadTaskTipsPref() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final nowPh = _manilaNow();
-      final ymd =
-          '${nowPh.year}-${nowPh.month.toString().padLeft(2, '0')}-${nowPh.day.toString().padLeft(2, '0')}';
-      const key = 'task_tips_hidden_ymd';
-      final hiddenYmd = prefs.getString(key);
-      final shouldShow = hiddenYmd != ymd; // show unless already hidden today
-      if (!mounted) return;
-      setState(() {
-        _showTaskTips = shouldShow;
-      });
-    } catch (_) {
-      // If prefs fails, keep default true so tips still show
-    }
-  }
-
-  Future<void> _hideTaskTipsToday() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final nowPh = _manilaNow();
-      final ymd =
-          '${nowPh.year}-${nowPh.month.toString().padLeft(2, '0')}-${nowPh.day.toString().padLeft(2, '0')}';
-      const key = 'task_tips_hidden_ymd';
-      await prefs.setString(key, ymd);
-    } catch (_) {
-      // Ignore errors; UI already hid the tips in this session
     }
   }
 

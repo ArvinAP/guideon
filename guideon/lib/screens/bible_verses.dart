@@ -40,6 +40,7 @@ class _BibleVersesPageState extends State<BibleVersesPage>
 
   @override
   void dispose() {
+    _controller.dispose();
     _sub?.cancel();
     super.dispose();
   }
@@ -92,7 +93,6 @@ class _BibleVersesPageState extends State<BibleVersesPage>
           selLower.toUpperCase(),                            // All caps: "HAPPY"
         ];
         q = q.where('themes', arrayContainsAny: variations);
-        debugPrint('Filtering verses for theme variations: $variations');
       }
       
       _sub = q.snapshots().listen(
@@ -116,23 +116,15 @@ class _BibleVersesPageState extends State<BibleVersesPage>
               _isLoading = false;
               _errorMessage = null;
             });
-            
-            debugPrint('Verses loaded: ${_filteredItems.length} for theme "$selLower"');
-            
-            // Don't fallback to all verses - keep the filter strict
-            if (_filteredItems.isEmpty && selLower != 'all') {
-              debugPrint('No verses found for theme "$selLower". Try a different theme or check your database.');
-            }
+            // Keep the filter strict even if empty
           } catch (e) {
             setState(() {
               _isLoading = false;
               _errorMessage = 'Error processing verses: ${e.toString()}';
             });
-            debugPrint('Error processing verses: $e');
           }
         },
         onError: (error) {
-          debugPrint('Firestore error: $error');
           setState(() {
             _isLoading = false;
             _errorMessage = 'Failed to load verses from database: ${error.toString()}';
@@ -140,7 +132,6 @@ class _BibleVersesPageState extends State<BibleVersesPage>
         },
       );
     } catch (e) {
-      debugPrint('Connection error: $e');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Connection error: ${e.toString()}';
@@ -162,7 +153,6 @@ class _BibleVersesPageState extends State<BibleVersesPage>
         selectedTheme.toUpperCase(),
       ];
       query = query.where('themes', arrayContainsAny: variations);
-      debugPrint('Fallback: Still filtering for theme variations: $variations');
     }
     
     query.limit(50).get().then((snap) {
@@ -182,10 +172,7 @@ class _BibleVersesPageState extends State<BibleVersesPage>
         _isLoading = false;
         _errorMessage = items.isEmpty ? 'No verses found for "$_selectedTheme"' : null;
       });
-      
-      debugPrint('Fallback: Loaded ${items.length} verses for theme "$selectedTheme"');
     }).catchError((error) {
-      debugPrint('Fallback loading failed: $error');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Failed to load verses from database: ${error.toString()}';
@@ -297,19 +284,19 @@ class _BibleVersesPageState extends State<BibleVersesPage>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Status indicator
-                    Text(
-                      _isLoading 
-                          ? 'Loading...' 
-                          : _errorMessage != null 
-                              ? 'Error - Tap card to retry'
-                              : 'Loaded: ${_filteredItems.length}',
-                      style: TextStyle(
-                        color: _errorMessage != null ? Colors.red : Colors.black54, 
-                        fontSize: 12,
-                        fontWeight: _errorMessage != null ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
+                    // Status indicator (hide count when loaded)
+                    if (_isLoading)
+                      const Text(
+                        'Loading...',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
+                      )
+                    else if (_errorMessage != null)
+                      const Text(
+                        'Error - Tap card to retry',
+                        style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.w600),
+                      )
+                    else
+                      const SizedBox.shrink(),
                   ],
                 ),
               ),

@@ -60,9 +60,9 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    const headerColor = Color(0xFF2E7AA1);
-    const textPrimary = Color(0xFF154D71);
-    const cardBg = Color(0xFFEAEFEF);
+    const headerColor = Color(0xFF2EC4B6); // teal
+    const textPrimary = Colors.black87;
+    const cardBg = Color(0xFFFFF9ED); // cream
 
     if (_loading) {
       return const Scaffold(
@@ -84,13 +84,13 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
             right: 0,
             child: SafeArea(
               child: Container(
-                height: 140,
+                height: 150,
                 width: double.infinity,
                 decoration: const BoxDecoration(
                   color: headerColor,
                   borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
+                    bottomLeft: Radius.circular(36),
+                    bottomRight: Radius.circular(36),
                   ),
                 ),
                 alignment: Alignment.center,
@@ -98,7 +98,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                   children: [
                     const Center(
                       child: Text(
-                        'Admin',
+                        'Admin Profile',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 28,
@@ -107,19 +107,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                         ),
                       ),
                     ),
-                    if (_role == 'super_admin')
-                      Positioned(
-                        right: 12,
-                        top: 12,
-                        child: Tooltip(
-                          message: 'Go to User side',
-                          child: IconButton(
-                            icon: const Icon(Icons.switch_account,
-                                color: Colors.white),
-                            onPressed: () => _RouteBuilder.userSide(context),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
@@ -129,17 +116,17 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           // Content
           SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(0, 100, 0, 24),
+              padding: const EdgeInsets.fromLTRB(0, 110, 0, 24),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Color(0xFFFFF9ED),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Colors.grey.shade200),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
                     )
                   ],
@@ -163,7 +150,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                       radius: 42,
                       backgroundColor: Color(0xFFE0E0E0),
                       child: Icon(
-                        Icons.admin_panel_settings,
+                        Icons.person,
                         size: 48,
                         color: Colors.grey,
                       ),
@@ -171,15 +158,24 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
                     const SizedBox(height: 12),
 
                     const Text(
-                      'Administrator',
+                      'Admin',
                       style: TextStyle(
-                        color: textPrimary,
+                        color: headerColor,
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                         fontFamily: 'Coiny',
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
+                    Text(
+                      FirebaseAuth.instance.currentUser?.email ?? '',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                        fontFamily: 'Comfortaa',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
 
                     _ActionItem(
                       icon: Icons.edit_outlined,
@@ -336,16 +332,32 @@ class _ActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = Color(0xFF154D71);
-    final bg =
-        isDestructive ? const Color(0xFFFFC1B8) : const Color(0xFFC7EEF6);
-    final fg = isDestructive ? const Color(0xFF753A32) : textPrimary;
+    final Color borderColor =
+        isDestructive ? Colors.transparent : const Color(0xFFFFE0B2);
+    final Color bg =
+        isDestructive ? const Color(0xFFE57373) : const Color(0xFFFFF9ED);
+    final Color fg = isDestructive ? Colors.white : Colors.black87;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: isDestructive ? 0 : 2),
+        boxShadow: isDestructive
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [
+                BoxShadow(
+                  color: const Color(0xFFF4A100).withOpacity(0.18),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: ListTile(
         leading: Icon(icon, color: fg),

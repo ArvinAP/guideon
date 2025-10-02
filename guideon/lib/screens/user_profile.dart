@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'edit_profile.dart';
 import 'streak_pet.dart';
@@ -128,18 +130,34 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Avatar (show stored photo if available)
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: const Color(0xFFE0E0E0),
-                        backgroundImage: (userProfile?['photoUrl'] != null &&
-                                (userProfile!['photoUrl'] as String).isNotEmpty)
-                            ? NetworkImage(userProfile!['photoUrl'] as String)
-                            : null,
-                        child: (userProfile?['photoUrl'] == null ||
-                                (userProfile!['photoUrl'] as String).isEmpty)
-                            ? const Icon(Icons.person,
-                                size: 60, color: Colors.grey)
-                            : null,
+                      Builder(
+                        builder: (context) {
+                          final photoData =
+                              userProfile?['photoData'] as String?;
+                          Uint8List? embeddedBytes;
+                          if (photoData != null && photoData.isNotEmpty) {
+                            try {
+                              embeddedBytes = base64Decode(photoData);
+                            } catch (_) {
+                              embeddedBytes = null;
+                            }
+                          }
+                          final photoUrl = userProfile?['photoUrl'] as String?;
+                          final hasUrl =
+                              photoUrl != null && photoUrl.isNotEmpty;
+                          final hasEmbedded = embeddedBytes != null;
+                          return CircleAvatar(
+                            radius: 50,
+                            backgroundColor: const Color(0xFFE0E0E0),
+                            backgroundImage: hasEmbedded
+                                ? MemoryImage(embeddedBytes)
+                                : (hasUrl ? NetworkImage(photoUrl) : null),
+                            child: (!hasEmbedded && !hasUrl)
+                                ? const Icon(Icons.person,
+                                    size: 60, color: Colors.grey)
+                                : null,
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
 
@@ -158,7 +176,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                       Text(
                         mail,
                         style: const TextStyle(
-                          color: Colors.black54,
+                          color: Colors.black87,
                           fontSize: 14,
                           fontFamily: 'Comfortaa',
                         ),
@@ -200,16 +218,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
                       const SizedBox(height: 16),
 
                       // Action list
-                      _ActionItem(
-                        icon: Icons.bookmark_border,
-                        label: 'Favorites',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Favorites coming soon')),
-                          );
-                        },
-                      ),
+                      // _ActionItem(
+                      //   icon: Icons.bookmark_border,
+                      //   label: 'Favorites',
+                      //   onTap: () {
+                      //     ScaffoldMessenger.of(context).showSnackBar(
+                      //       const SnackBar(
+                      //           content: Text('Favorites coming soon')),
+                      //     );
+                      //   },
+                      // ),
                       _ActionItem(
                         icon: Icons.pets_outlined,
                         label: 'Pet',
@@ -228,7 +246,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const JournalListPage(showDeletedInitially: true),
+                              builder: (_) => const JournalListPage(
+                                  showDeletedInitially: true),
                             ),
                           );
                         },
@@ -265,11 +284,9 @@ class _ActionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = Color(0xFF154D71);
     final bg = isDestructive
         ? const Color(0xFFFFC1B8) // Light red for logout
         : Colors.white; // White background for normal items
-    final fg = isDestructive ? const Color(0xFF753A32) : textPrimary;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -287,17 +304,18 @@ class _ActionItem extends StatelessWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Icon(icon, color: fg, size: 22),
+        leading: Icon(icon, color: Colors.black87, size: 22),
         title: Text(
           label,
           style: TextStyle(
-            color: fg,
+            color: Colors.black87,
             fontWeight: FontWeight.w600,
             fontSize: 16,
             fontFamily: 'Comfortaa',
           ),
         ),
-        trailing: Icon(Icons.arrow_forward_ios, color: fg, size: 16),
+        trailing: const Icon(Icons.arrow_forward_ios,
+            color: Colors.black87, size: 16),
         onTap: onTap,
       ),
     );

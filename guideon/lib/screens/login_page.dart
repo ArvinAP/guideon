@@ -29,6 +29,85 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  Future<void> _handleForgotPassword() async {
+    final controller = TextEditingController(text: emailController.text.trim());
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text(
+            'Reset Password',
+            style: TextStyle(fontFamily: 'Coiny', fontWeight: FontWeight.w700),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Enter your account email. We will send a password reset link to your inbox.',
+                style: TextStyle(fontFamily: 'Comfortaa'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                style: const TextStyle(fontFamily: 'Comfortaa'),
+                decoration: const InputDecoration(
+                  hintText: 'email@example.com',
+                  hintStyle: TextStyle(fontFamily: 'Comfortaa'),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              style: TextButton.styleFrom(
+                textStyle: const TextStyle(fontFamily: 'Comfortaa'),
+              ),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: ElevatedButton.styleFrom(
+                textStyle: const TextStyle(fontFamily: 'Comfortaa'),
+              ),
+              child: const Text('Send'),
+            ),
+          ],
+        );
+      },
+    );
+    if (result != true) return;
+
+    final email = controller.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      _showSnack('Please enter a valid email');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _showSnack('Password reset email sent to $email');
+    } on FirebaseAuthException catch (e) {
+      String message = 'Failed to send reset email';
+      switch (e.code) {
+        case 'invalid-email':
+          message = 'Invalid email address';
+          break;
+        case 'user-not-found':
+          message = 'No account found with this email';
+          break;
+        default:
+          message = e.message ?? message;
+      }
+      _showSnack(message);
+    } catch (e) {
+      _showSnack('Error: ${e.toString()}');
+    }
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
@@ -205,6 +284,7 @@ class _LoginPageState extends State<LoginPage> {
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF3DB5A6),
+                    fontFamily: 'Coiny',
                   ),
                 ),
               ),
@@ -224,6 +304,7 @@ class _LoginPageState extends State<LoginPage> {
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF3DB5A6),
+                    fontFamily: 'Coiny',
                   ),
                 ),
               ),
@@ -268,7 +349,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: _handleForgotPassword,
                     style: TextButton.styleFrom(
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
@@ -326,7 +407,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: const Text(
                       "Sign Up here",
                       style: TextStyle(
-                        color: Color.fromARGB(255, 21, 77, 113),
+                        color: Color(0xFF3DB5A6),
                         fontWeight: FontWeight.bold,
                         fontFamily: 'Comfortaa',
                       ),

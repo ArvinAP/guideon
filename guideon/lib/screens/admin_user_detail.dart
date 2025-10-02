@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AdminUserDetailPage extends StatefulWidget {
   final String userId;
@@ -15,6 +16,17 @@ class AdminUserDetailPage extends StatefulWidget {
 class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
   late final TextEditingController _nameCtrl;
   String _role = 'user';
+  String _currentUserRole = 'user';
+  String _originalRole = 'user';
+  bool _loadingViewerRole = true;
+
+  String _normalizeRole(String r) {
+    final v = (r).toString().trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_');
+    if (v == 'superadmin') return 'super_admin';
+    if (v == 'super_admin') return 'super_admin';
+    if (v == 'admin') return 'admin';
+    return 'user';
+  }
 
   @override
   void initState() {
@@ -29,7 +41,30 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
             ? [first, last].where((e) => e.isNotEmpty).join(' ')
             : fallback;
     _nameCtrl = TextEditingController(text: name);
-    _role = 'user';
+    _role = _normalizeRole((widget.data['role'] ?? 'user').toString());
+    _originalRole = _role;
+
+    // Fetch the current signed-in admin's role to gate permissions
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .then((doc) {
+        if (mounted && doc.data() != null) {
+          setState(() {
+            _currentUserRole = _normalizeRole((doc.data()!['role'] ?? 'user').toString());
+            _loadingViewerRole = false;
+          });
+        }
+      }).catchError((_) {});
+    }
+    if (mounted) {
+      setState(() {
+        _loadingViewerRole = false; // fallback if no user
+      });
+    }
   }
 
   @override
@@ -40,17 +75,40 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
 
   Future<void> _save() async {
     try {
+      // Only super_admins can change the user's role
+      final canEditRole = _currentUserRole == 'super_admin';
+      if (_loadingViewerRole) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please wait, checking permissions...')),
+        );
+        return;
+      }
+      if (!canEditRole && _role != _originalRole) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Only super_admin can change user role.')),
+        );
+        return;
+      }
+      if (_role == _originalRole) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No changes to save.')),
+        );
+        return;
+      }
+      final newRole = canEditRole ? _role : _originalRole;
+
       await FirebaseFirestore.instance
           .collection('users')
           .doc(widget.userId)
           .update({
-        'role': _role,
+        'role': newRole,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User updated')),
+          SnackBar(content: Text('User updated. Role: $newRole')),
         );
+        _originalRole = newRole;
       }
     } catch (e) {
       if (mounted) {
@@ -77,45 +135,23 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'User Details',
-          style: TextStyle(
-            color: Color(0xFF154D71),
-            fontFamily: 'Coiny',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF154D71)),
+        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
-            icon: const Icon(Icons.save, color: Color(0xFF154D71)),
+            icon: const Icon(Icons.save, color: Color(0xFF2EC4B6)),
             onPressed: _save,
             tooltip: 'Save',
           ),
         ],
       ),
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User Name Display
-            Align(
-              alignment: Alignment.center,
-              child: Text(
-                _nameCtrl.text.isNotEmpty ? _nameCtrl.text : 'User Name',
-                style: const TextStyle(
-                  color: Color(0xFF154D71),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  fontFamily: 'Comfortaa',
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
             // Avatar
             const CircleAvatar(
               radius: 36,
@@ -128,9 +164,9 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
               child: Text(
                 _usernameFromName(_nameCtrl.text),
                 style: const TextStyle(
-                  color: Color(0xFFB8860B), // golden-like
+                  color: Color(0xFFF4A100),
                   fontFamily: 'Coiny',
-                  fontSize: 28,
+                  fontSize: 30,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -149,17 +185,37 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
             _label('Role'),
             _box(
               child: DropdownButtonFormField<String>(
-                value: _role,
+                value: _normalizeRole(_role),
                 items: const [
                   DropdownMenuItem(value: 'user', child: Text('user')),
+                  DropdownMenuItem(value: 'admin', child: Text('admin')),
+                  DropdownMenuItem(value: 'super_admin', child: Text('super_admin')),
                 ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() => _role = v);
-                },
+                onChanged: !_loadingViewerRole && _normalizeRole(_currentUserRole) == 'super_admin'
+                    ? (v) {
+                        if (v == null) return;
+                        setState(() => _role = _normalizeRole(v));
+                      }
+                    : null,
                 decoration: _inputDecoration('Role'),
               ),
             ),
+            if (_loadingViewerRole)
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'Checking permissions...',
+                  style: TextStyle(fontFamily: 'Comfortaa', color: Colors.black54, fontSize: 12),
+                ),
+              )
+            else if (_normalizeRole(_currentUserRole) != 'super_admin')
+              const Padding(
+                padding: EdgeInsets.only(top: 6),
+                child: Text(
+                  'Only super_admin can change role.',
+                  style: TextStyle(fontFamily: 'Comfortaa', color: Colors.black54, fontSize: 12),
+                ),
+              ),
             const SizedBox(height: 16),
 
             _label('Email Address'),
@@ -224,7 +280,7 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
         child: Text(
           text,
           style: const TextStyle(
-            color: Color(0xFF154D71),
+            color: Color(0xFF1E88E5),
             fontWeight: FontWeight.w700,
             fontFamily: 'Comfortaa',
           ),
@@ -233,13 +289,14 @@ class _AdminUserDetailPageState extends State<AdminUserDetailPage> {
 
   Widget _box({required Widget child}) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF1DA), // light warm fill
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFFFE0B2), width: 2),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black12,
+              color: const Color(0xFFF4A100).withOpacity(0.2),
               blurRadius: 6,
-              offset: Offset(2, 3),
+              offset: const Offset(0, 2),
             )
           ],
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import '../services/daily_tasks_service.dart';
 import '../services/auth_service.dart';
 import '../models/user_data.dart';
@@ -11,7 +12,6 @@ class StreakPetPage extends StatefulWidget {
 }
 
 class _StreakPetPageState extends State<StreakPetPage> {
-  static const Color primaryBlue = Color(0xFF154D71);
   UserProgress? _progress;
 
   @override
@@ -70,28 +70,17 @@ class _StreakPetPageState extends State<StreakPetPage> {
     final double frac = (inLevel.clamp(0, 100)) / 100.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFEAEFEF),
+      backgroundColor: const Color(0xFFFFF9ED),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFEAEFEF),
+        backgroundColor: const Color(0xFFFFF9ED),
         elevation: 0,
         title: const Text(
           'Streak Pet',
           style: TextStyle(
-              color: primaryBlue,
+              color: Color(0xFFF4A100),
               fontWeight: FontWeight.bold,
               fontFamily: 'Coiny'),
         ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: primaryBlue),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh, color: primaryBlue),
-            onPressed: _loadProgress,
-          )
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -105,7 +94,7 @@ class _StreakPetPageState extends State<StreakPetPage> {
                 gradient: const LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFFDFF7FF), Colors.white],
+                  colors: [Color(0xFFAEEAD8), Colors.white],
                 ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: Colors.white, width: 2),
@@ -118,19 +107,21 @@ class _StreakPetPageState extends State<StreakPetPage> {
               ),
               child: Column(
                 children: [
-                  // Pet GIF
+                  // Pet Lottie JSON
                   SizedBox(
                     height: 160,
-                    child: Image.asset(
-                      'lib/assets/pet/streakpet.gif',
+                    child: Lottie.asset(
+                      'lib/assets/pet/pet1.json.json',
                       fit: BoxFit.contain,
+                      repeat: true,
+                      animate: true,
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Level $level',
                     style: const TextStyle(
-                        color: primaryBlue,
+                        color: Color(0xFFF4A100),
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                         fontFamily: 'Coiny'),
@@ -142,9 +133,8 @@ class _StreakPetPageState extends State<StreakPetPage> {
                     child: LinearProgressIndicator(
                       minHeight: 16,
                       value: frac,
-                      backgroundColor: const Color(0xFFE6EEF3),
-                      valueColor:
-                          const AlwaysStoppedAnimation(Color(0xFF2E86C1)),
+                      backgroundColor: const Color(0xFFE6F5F0),
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFFF4A100)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -189,7 +179,7 @@ class _StreakPetPageState extends State<StreakPetPage> {
                     style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: primaryBlue,
+                        color: Color(0xFFF4A100),
                         fontFamily: 'Coiny'),
                   ),
                   const SizedBox(height: 12),

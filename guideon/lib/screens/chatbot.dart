@@ -33,12 +33,13 @@ class _ChatbotPageState extends State<ChatbotPage> {
       false; // becomes true after user saves mood/motivation or sends a message
   late String _selectedMood;
   bool _hasShownQuote = false; // controls when to fetch another quote
+  bool _showChoice = true; // show initial choice buttons until user picks one
   static const List<String> _moodOptions = [
     'Happy',
-    'Neutral',
+    'Excited',
+    'Angry',
     'Sad',
-    'Anxious',
-    'Stressed',
+    'Neutral',
   ];
 
   String _normalizeMood(String v) {
@@ -47,6 +48,175 @@ class _ChatbotPageState extends State<ChatbotPage> {
       if (opt.toLowerCase() == s.toLowerCase()) return opt;
     }
     return 'Neutral';
+  }
+
+  Widget _buildChoiceSection() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Hello',
+            style: const TextStyle(
+              fontFamily: 'Coiny',
+              fontSize: 32,
+              color: Color(0xFF3DB5A6),
+            ),
+          ),
+          Text(
+            '${widget.username ?? 'there'}!',
+            style: const TextStyle(
+              fontFamily: 'Coiny',
+              fontSize: 32,
+              color: Color(0xFFF4A100),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'What would you like to start with?',
+            style: TextStyle(
+              fontFamily: 'Comfortaa',
+              color: Color(0xFF154D71),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton(
+                onPressed: _isSending ? null : _fetchInitialQuote,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2EC4B6),
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder(),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  textStyle: const TextStyle(
+                      fontFamily: 'Comfortaa', fontWeight: FontWeight.w700),
+                ),
+                child: const Text('Motivational Quote'),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: _isSending ? null : _fetchInitialVerse,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF4A100),
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder(),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  textStyle: const TextStyle(
+                      fontFamily: 'Comfortaa', fontWeight: FontWeight.w700),
+                ),
+                child: const Text('Bible Verse'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _fetchInitialQuote() async {
+    if (_isSending) return;
+    setState(() {
+      _isSending = true;
+      _engaged = true;
+    });
+    try {
+      DailyTasksService.instance.mark('chatbotUsed');
+      DailyTasksService.instance.mark('moodChecked');
+
+      final result = await ChatService.instance.generateViaVercel(
+        theme: _selectedMood.toLowerCase(),
+        message: 'Please reflect on this for me.',
+        askForQuote: true,
+        askForVerse: false,
+        history: const [],
+      );
+      if (!mounted) return;
+      setState(() {
+        if (result.quoteText.isNotEmpty) {
+          final quote = _formatQuote(
+            text: result.quoteText,
+            source: result.quoteSource,
+            verse: result.quoteVerse,
+          );
+          _messages.add(ChatMessage(role: 'assistant', content: quote));
+        }
+        if (result.interpretation.isNotEmpty) {
+          _messages.add(
+              ChatMessage(role: 'assistant', content: result.interpretation));
+        }
+        _hasShownQuote = true;
+        _isSending = false;
+        _showChoice = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessage(
+            role: 'assistant',
+            content: 'Sorry, something went wrong fetching a quote.'));
+        _isSending = false;
+      });
+      _scrollToBottom();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Future<void> _fetchInitialVerse() async {
+    if (_isSending) return;
+    setState(() {
+      _isSending = true;
+      _engaged = true;
+    });
+    try {
+      DailyTasksService.instance.mark('chatbotUsed');
+      DailyTasksService.instance.mark('moodChecked');
+
+      final result = await ChatService.instance.generateViaVercel(
+        theme: _selectedMood.toLowerCase(),
+        message: 'Please reflect on this Bible verse for me.',
+        askForQuote: false,
+        askForVerse: true,
+        history: const [],
+      );
+      if (!mounted) return;
+      setState(() {
+        if (result.quoteText.isNotEmpty) {
+          final quote = _formatQuote(
+            text: result.quoteText,
+            source: result.quoteSource,
+            verse: result.quoteVerse,
+          );
+          _messages.add(ChatMessage(role: 'assistant', content: quote));
+        }
+        if (result.interpretation.isNotEmpty) {
+          _messages.add(
+              ChatMessage(role: 'assistant', content: result.interpretation));
+        }
+        _hasShownQuote = true;
+        _isSending = false;
+        _showChoice = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _messages.add(ChatMessage(
+            role: 'assistant',
+            content: 'Sorry, something went wrong fetching a verse.'));
+        _isSending = false;
+      });
+      _scrollToBottom();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -134,14 +304,23 @@ class _ChatbotPageState extends State<ChatbotPage> {
     final intro =
         "You are GuideOn, a friendly, empathetic mental-health companion. The user's current mood is '${widget.mood}'. Respond briefly, kindly, and ask one gentle follow-up.";
     _messages.add(ChatMessage(role: 'system', content: intro));
-    // First assistant message
-    _messages.add(ChatMessage(
-      role: 'assistant',
-      content:
-          "Hi ${widget.username ?? 'there'}! I see you're feeling ${widget.mood.toLowerCase()}. Would you like to tell me a bit about what's on your mind?",
-    ));
     // Load previous chats (latest day) and append to thread.
     _loadHistory();
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatbotPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newMood = _normalizeMood(widget.mood);
+    if (newMood != _selectedMood) {
+      setState(() {
+        _selectedMood = newMood;
+        // Re-show the choice buttons when mood changes
+        _showChoice = true;
+        // Allow another quote/verse suggestion for the new mood
+        _hasShownQuote = false;
+      });
+    }
   }
 
   @override
@@ -187,6 +366,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _messages.add(ChatMessage(role: 'user', content: text));
       _isSending = true;
       _engaged = true; // user interacted
+      _showChoice = false;
     });
 
     // Mark tasks as completed when user engages with chatbot
@@ -345,83 +525,50 @@ class _ChatbotPageState extends State<ChatbotPage> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Expanded(
-                        child: (_messages
-                                .where((m) => m.role != 'system')
-                                .isEmpty)
-                            ? Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      'Hello',
-                                      style: const TextStyle(
-                                        fontFamily: 'Coiny',
-                                        fontSize: 32,
-                                        color: Color(0xFF3DB5A6),
-                                      ),
+                      if (_showChoice) _buildChoiceSection(),
+                      const SizedBox(height: 8),
+                      if (!_showChoice)
+                        Expanded(
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            itemCount: _messages.length + (_isSending ? 1 : 0),
+                            padding: const EdgeInsets.only(bottom: 12),
+                            itemBuilder: (context, i) {
+                              if (_isSending && i == _messages.length) {
+                                return _typingBubble();
+                              }
+                              if (i >= _messages.length) return const SizedBox.shrink();
+                              final m = _messages[i];
+                              if (m.role == 'system') {
+                                return const SizedBox.shrink();
+                              }
+                              final isUser = m.role == 'user';
+                              return Align(
+                                alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  constraints: const BoxConstraints(maxWidth: 280),
+                                  decoration: BoxDecoration(
+                                    color: isUser ? const Color(0xFFFFF9AF) : Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: const Color.fromARGB(255, 21, 77, 113),
+                                      width: 1.0,
                                     ),
-                                    Text(
-                                      '${widget.username ?? 'Username'}!',
-                                      style: const TextStyle(
-                                        fontFamily: 'Coiny',
-                                        fontSize: 32,
-                                        color: Color(0xFFF4A100),
-                                      ),
+                                  ),
+                                  child: Text(
+                                    m.content,
+                                    style: const TextStyle(
+                                      color: Color.fromARGB(255, 21, 77, 113),
+                                      fontFamily: 'Comfortaa',
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              )
-                            : ListView.builder(
-                                controller: _scrollController,
-                                itemCount:
-                                    _messages.length + (_isSending ? 1 : 0),
-                                padding: const EdgeInsets.only(bottom: 12),
-                                itemBuilder: (context, i) {
-                                  // Trailing typing indicator while waiting for reply
-                                  if (_isSending && i == _messages.length) {
-                                    return _typingBubble();
-                                  }
-                                  final m = _messages[i];
-                                  if (m.role == 'system') {
-                                    return const SizedBox.shrink();
-                                  }
-                                  final isUser = m.role == 'user';
-                                  return Align(
-                                    alignment: isUser
-                                        ? Alignment.centerRight
-                                        : Alignment.centerLeft,
-                                    child: Container(
-                                      margin: const EdgeInsets.symmetric(
-                                          vertical: 6),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 12, vertical: 10),
-                                      constraints:
-                                          const BoxConstraints(maxWidth: 280),
-                                      decoration: BoxDecoration(
-                                        color: isUser
-                                            ? const Color(0xFFFFF9AF)
-                                            : Colors.white,
-                                        borderRadius: BorderRadius.circular(14),
-                                        border: Border.all(
-                                          color: const Color.fromARGB(
-                                              255, 21, 77, 113),
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        m.content,
-                                        style: const TextStyle(
-                                          color:
-                                              Color.fromARGB(255, 21, 77, 113),
-                                          fontFamily: 'Comfortaa',
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
+                              );
+                            },
+                          ),
+                        ),
                     ],
                   ),
                 ),

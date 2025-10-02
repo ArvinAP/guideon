@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-  import 'package:firebase_auth/firebase_auth.dart';
-  import 'change_password.dart';
-  import '../services/auth_service.dart';
-  import 'dart:io';
-  import 'package:image_picker/image_picker.dart';
-  import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
-  import 'package:flutter/foundation.dart' show kIsWeb;
-  import 'dart:typed_data';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
+import 'change_password.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'dart:convert';
 
 class EditProfilePage extends StatefulWidget {
   const EditProfilePage({super.key});
@@ -33,6 +33,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   Uint8List? _pickedBytes; // for Web previews/uploads
   String? _photoUrl;
   bool _removePhoto = false;
+  Uint8List? _embeddedPhotoBytes; // for base64 photoData from Firestore
 
   // Store original values for cancel functionality
   String? originalFirstName;
@@ -55,6 +56,16 @@ class _EditProfilePageState extends State<EditProfilePage> {
             currentUser = user;
             userProfile = profileData;
             _photoUrl = profileData?['photoUrl'] as String?;
+            final photoData = profileData?['photoData'] as String?;
+            if (photoData != null && photoData.isNotEmpty) {
+              try {
+                _embeddedPhotoBytes = base64Decode(photoData);
+              } catch (_) {
+                _embeddedPhotoBytes = null;
+              }
+            } else {
+              _embeddedPhotoBytes = null;
+            }
 
             // Populate form fields
             _firstNameCtrl.text = profileData?['firstName'] ?? '';
@@ -166,7 +177,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   _pickImageFrom(ImageSource.gallery);
                 },
               ),
-              if (_photoUrl != null && _photoUrl!.isNotEmpty || _pickedImage != null)
+              if ((_photoUrl != null && _photoUrl!.isNotEmpty) || _pickedImage != null || _embeddedPhotoBytes != null)
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
                   title: const Text('Remove Photo'),
@@ -175,6 +186,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     setState(() {
                       _pickedImage = null;
                       _photoUrl = '';
+                      _embeddedPhotoBytes = null;
                       _removePhoto = true;
                     });
                   },
@@ -321,10 +333,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
                                           : null)
                                       : FileImage(File(_pickedImage!.path))
                                           as ImageProvider?)
-                                  : (_photoUrl != null && _photoUrl!.isNotEmpty)
-                                      ? NetworkImage(_photoUrl!)
-                                      : null,
-                              child: (_pickedImage == null && (_photoUrl == null || _photoUrl!.isEmpty))
+                                  : (_embeddedPhotoBytes != null
+                                      ? MemoryImage(_embeddedPhotoBytes!)
+                                      : (_photoUrl != null && _photoUrl!.isNotEmpty)
+                                          ? NetworkImage(_photoUrl!)
+                                          : null),
+                              child: (_pickedImage == null && _embeddedPhotoBytes == null && (_photoUrl == null || _photoUrl!.isEmpty))
                                   ? const Icon(Icons.person, size: 56, color: Colors.grey)
                                   : null,
                             ),
@@ -506,28 +520,17 @@ class _EditProfilePageState extends State<EditProfilePage> {
         'username': _usernameCtrl.text.trim(),
       };
 
-      // If a new image was picked, upload to Firebase Storage
+      // Minimal stopgap: store small avatar as base64 in Firestore (photoData)
       if (_pickedImage != null) {
-        final storage = firebase_storage.FirebaseStorage.instance;
-        final ref = storage.ref().child('user_photos/${user.uid}.jpg');
-        if (kIsWeb) {
-          // Use bytes on Web
-          final bytes = _pickedBytes ?? await _pickedImage!.readAsBytes();
-          await ref.putData(
-            bytes,
-            firebase_storage.SettableMetadata(contentType: 'image/jpeg'),
-          );
-        } else {
-          final file = File(_pickedImage!.path);
-          await ref.putFile(
-            file,
-            firebase_storage.SettableMetadata(contentType: 'image/jpeg'),
-          );
-        }
-        final url = await ref.getDownloadURL();
-        _photoUrl = url;
-        updatedData['photoUrl'] = url;
+        // Prefer already-resized/compressed picker output
+        final bytes = _pickedBytes ?? await _pickedImage!.readAsBytes();
+        final b64 = base64Encode(bytes);
+        _embeddedPhotoBytes = bytes;
+        updatedData['photoData'] = b64;
+        // Optional: clear legacy photoUrl
+        updatedData['photoUrl'] = '';
       } else if (_removePhoto) {
+        updatedData['photoData'] = '';
         updatedData['photoUrl'] = '';
       }
 

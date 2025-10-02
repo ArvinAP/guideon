@@ -135,11 +135,54 @@ async function verifyIdToken(req) {
   }
 }
 
-async function getRandomQuoteByTheme(db, theme) {
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function getNextFromRotation({ db, uid, kind, theme, docs }) {
+  // kind: 'quotes' | 'verses'
+  // docs: array of QueryDocumentSnapshot
+  const key = `${kind}_${String(theme).toLowerCase()}`;
+  const rotRef = db.collection('users').doc(uid).collection('rotations').doc(key);
+  const snap = await rotRef.get();
+
+  const allIds = docs.map((d) => d.id);
+  let order = [];
+  let index = 0;
+
+  if (snap.exists) {
+    const data = snap.data() || {};
+    order = Array.isArray(data.order) ? data.order.filter((id) => allIds.includes(id)) : [];
+    index = Number.isInteger(data.index) ? data.index : 0;
+  }
+
+  // If order is missing or underlying IDs changed, rebuild a shuffled order
+  if (order.length !== allIds.length) {
+    order = shuffleArray(allIds);
+    index = 0;
+  }
+
+  if (order.length === 0) return null;
+
+  // Grab current id and advance index
+  const pickId = order[index % order.length];
+  index = (index + 1) % order.length;
+  await rotRef.set({ order, index, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+
+  const picked = docs.find((d) => d.id === pickId) || docs[0];
+  return picked;
+}
+
+async function getRotatingQuoteByTheme(db, uid, theme) {
   const q = await db.collection('quotes').where('themes', 'array-contains', theme.toLowerCase()).get();
   if (q.empty) return null;
-  const docs = q.docs;
-  const pick = docs[Math.floor(Math.random() * docs.length)];
+  const pick = await getNextFromRotation({ db, uid, kind: 'quotes', theme, docs: q.docs });
+  if (!pick) return null;
   const data = pick.data();
   return {
     text: data.text || '',
@@ -149,25 +192,16 @@ async function getRandomQuoteByTheme(db, theme) {
   };
 }
 
-async function getRandomVerseByTheme(db, theme) {
-  // Expect collection 'verses' with fields: text, reference (e.g., "John 3:16"), translation, themes: string[]
-  const q = await db.collection('verses').where('themes', 'array-contains', theme.toLowerCase()).get();
+async function getRotatingVerseByTheme(db, uid, theme) {
+  // Expect collection 'verses' with fields: text, reference, translation, themes: string[]
+  let q = await db.collection('verses').where('themes', 'array-contains', theme.toLowerCase()).get();
   if (q.empty) {
     // Fallback: try any verse if theme not found
-    const any = await db.collection('verses').limit(50).get();
-    if (any.empty) return null;
-    const docs = any.docs;
-    const pick = docs[Math.floor(Math.random() * docs.length)];
-    const d = pick.data();
-    return {
-      text: d.text || '',
-      reference: d.reference || '',
-      translation: d.translation || '',
-      theme: theme.toLowerCase(),
-    };
+    q = await db.collection('verses').limit(50).get();
   }
-  const docs = q.docs;
-  const pick = docs[Math.floor(Math.random() * docs.length)];
+  if (q.empty) return null;
+  const pick = await getNextFromRotation({ db, uid, kind: 'verses', theme, docs: q.docs });
+  if (!pick) return null;
   const data = pick.data();
   return {
     text: data.text || '',
@@ -178,8 +212,10 @@ async function getRandomVerseByTheme(db, theme) {
 }
 
 function buildChatMessagesForQuote({ theme, message, quote }) {
-  const sys = `You are GuideOn, an empathetic, concise mental-health companion. The user's mood is ${theme}. Use the quote to give a short, validating interpretation and ONE practical action step. Avoid sounding clinical; be warm and brief.`;
-  const user = `User message: ${message}\nQuote: "${quote.text}" — ${quote.source || 'Unknown'}${quote.verse ? ` (${quote.verse})` : ''}`;
+  const sys = `You are GuideOn, an empathetic, concise mental-health companion. The user's mood is ${theme}.
+Only reflect on the provided quote; do NOT invent or add other quotes, verses, or sources. Do not fabricate details.
+Respond in 2-5 sentences total, warm and brief, and end with ONE practical, gentle action.`;
+  const user = `User message: ${message}\nQuote (reflect only on this): "${quote.text}" — ${quote.source || 'Unknown'}${quote.verse ? ` (${quote.verse})` : ''}`;
   return [
     { role: 'system', content: sys },
     { role: 'user', content: user },
@@ -187,7 +223,12 @@ function buildChatMessagesForQuote({ theme, message, quote }) {
 }
 
 function buildChatMessagesForConversation({ theme, history = [], message }) {
-  const sys = `You are GuideOn, a friendly, empathetic companion. The user's mood is ${theme}. Speak naturally in 1–3 sentences. Validate feelings, reflect key points, and offer a small, practical suggestion when helpful. Do not end every message with a question. Ask a gentle follow-up only occasionally (about every 2–3 turns) and only if it clearly moves the conversation forward. Vary your wording and avoid repetitive prompts. Do NOT include a quote or Bible verse unless explicitly asked.`;
+  const sys = `You are GuideOn, a friendly, empathetic companion. The user's mood is ${theme}.
+Your replies must stay strictly tied to the CURRENT quote or Bible verse the user is viewing.
+Do not introduce new quotes, verses, sources, or topics. Do not steer the conversation away.
+If the user's message is off-topic (not clearly about the current quote/verse), gently redirect in 1 sentence back to the quote/verse and ask one brief, relevant question or offer one brief reflection to bring them back.
+When on-topic, respond in 1–3 sentences: validate feelings, reflect a key point from the quote/verse, and offer one small, practical step connected to it.
+Avoid repetitive wording. Do not end every message with a question; ask a gentle follow-up only occasionally when it clearly helps and remains about the quote/verse.`;
   const messages = [{ role: 'system', content: sys }];
   // History should be an array of { role: 'user'|'assistant', content: string }
   for (const m of history.slice(-10)) {
@@ -212,7 +253,7 @@ async function deepseekChat(messages) {
     body: JSON.stringify({
       model: 'deepseek-chat',
       messages,
-      temperature: 0.7,
+      temperature: 0.3, // lower creativity to avoid fabrication
       max_tokens: 400,
     }),
   });
@@ -227,9 +268,11 @@ async function deepseekChat(messages) {
 }
 
 function buildChatMessagesForVerse({ theme, message, verse }) {
-  const sys = `You are GuideOn, an empathetic, concise companion. The user's mood is ${theme}. Use the Bible verse to offer a short, compassionate interpretation (2-5 sentences max) and ONE gentle, practical application. Be sensitive and non-preachy, welcoming users of varying beliefs.`;
+  const sys = `You are GuideOn, an empathetic, concise companion. The user's mood is ${theme}.
+Only reflect on the provided Bible verse text; do NOT select or generate any other verses or references. Do not add extra scripture.
+Respond in 2-5 sentences total and finish with ONE gentle, practical application. Be sensitive and welcoming to varying beliefs.`;
   const ref = [verse.reference, verse.translation].filter(Boolean).join(' ');
-  const user = `User message: ${message}\nBible verse: "${verse.text}"${ref ? ` — ${ref}` : ''}`;
+  const user = `User message: ${message}\nBible verse (reflect only on this): "${verse.text}"${ref ? ` — ${ref}` : ''}`;
   return [
     { role: 'system', content: sys },
     { role: 'user', content: user },
@@ -323,7 +366,7 @@ export default async function handler(req, res) {
     const db = admin.firestore();
 
     if (askForVerse) {
-      const verse = await getRandomVerseByTheme(db, String(theme));
+      const verse = await getRotatingVerseByTheme(db, decoded.uid, String(theme));
       if (!verse) return res.status(404).json({ error: `No verses available${theme ? ` for theme: ${theme}` : ''}` });
 
       const messages = buildChatMessagesForVerse({ theme, message, verse });
@@ -339,7 +382,7 @@ export default async function handler(req, res) {
     }
 
     if (askForQuote) {
-      const quote = await getRandomQuoteByTheme(db, String(theme));
+      const quote = await getRotatingQuoteByTheme(db, decoded.uid, String(theme));
       if (!quote) return res.status(404).json({ error: `No quotes for theme: ${theme}` });
 
       const messages = buildChatMessagesForQuote({ theme, message, quote });

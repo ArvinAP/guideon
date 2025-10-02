@@ -48,14 +48,16 @@ class _JournalListPageState extends State<JournalListPage> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.black54),
+                        icon:
+                            const Icon(Icons.arrow_back, color: Colors.black54),
                         onPressed: () => Navigator.pop(context),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Journal',
                         style: const TextStyle(
-                          color: Color(0xFFF4A100), // Orange color to match design
+                          color:
+                              Color(0xFFF4A100), // Orange color to match design
                           fontSize: 28,
                           fontWeight: FontWeight.w800,
                           fontFamily: 'Coiny',
@@ -86,10 +88,12 @@ class _JournalListPageState extends State<JournalListPage> {
                               ),
                             ),
                             selected: !_showDeleted,
-                            selectedColor: const Color(0xFFFFF59D), // Yellow/cream color
+                            selectedColor:
+                                const Color(0xFFFFF59D), // Yellow/cream color
                             backgroundColor: Colors.white,
                             side: BorderSide.none,
-                            onSelected: (v) => setState(() => _showDeleted = false),
+                            onSelected: (v) =>
+                                setState(() => _showDeleted = false),
                           ),
                           const SizedBox(width: 8),
                           ChoiceChip(
@@ -103,10 +107,12 @@ class _JournalListPageState extends State<JournalListPage> {
                               ),
                             ),
                             selected: _showDeleted,
-                            selectedColor: const Color(0xFFFFF59D), // Yellow/cream color
+                            selectedColor:
+                                const Color(0xFFFFF59D), // Yellow/cream color
                             backgroundColor: Colors.white,
                             side: BorderSide.none,
-                            onSelected: (v) => setState(() => _showDeleted = true),
+                            onSelected: (v) =>
+                                setState(() => _showDeleted = true),
                           ),
                         ],
                       ),
@@ -115,34 +121,55 @@ class _JournalListPageState extends State<JournalListPage> {
 
                 // Content list or empty state
                 Padding(
-                  padding: list.isEmpty 
-                      ? const EdgeInsets.fromLTRB(16, 70, 16, 16) // Less top padding for empty state
-                      : const EdgeInsets.fromLTRB(16, 100, 16, 80), // Normal padding for list
+                  padding: list.isEmpty
+                      ? const EdgeInsets.fromLTRB(
+                          16, 70, 16, 16) // Less top padding for empty state
+                      : const EdgeInsets.fromLTRB(
+                          16, 116, 16, 80), // Normal padding for list
                   child: list.isEmpty
-                      ? _EmptyState(onCreate: _openCreate)
+                      ? (_showDeleted
+                          ? const Center(
+                              child: Text(
+                                'Nothing to show',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Comfortaa',
+                                ),
+                              ),
+                            )
+                          : _EmptyState(onCreate: _openCreate))
                       : ListView.separated(
                           itemCount: list.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final e = list[index];
                             return _JournalCard(
                               entry: e,
                               onTap: () => _openEdit(e),
-                              onDelete: _showDeleted ? null : () => repo.delete(e.id),
-                              onRestore: _showDeleted ? () => repo.restore(e.id) : null,
+                              onDelete:
+                                  _showDeleted ? null : () => repo.delete(e.id),
+                              onRestore: _showDeleted
+                                  ? () => repo.restore(e.id)
+                                  : null,
                             );
                           },
                         ),
                 ),
 
-                // Add button - only show when there are entries
-                if (repo.entries.isNotEmpty || repo.recentlyDeleted.isNotEmpty)
+                // Add button - hide in Recently Deleted view
+                if (!_showDeleted &&
+                    (repo.entries.isNotEmpty ||
+                        repo.recentlyDeleted.isNotEmpty))
                   Positioned(
                     right: 24,
                     bottom: 24,
                     child: FloatingActionButton(
                       onPressed: _openCreate,
-                      backgroundColor: const Color(0xFF2EC4B6), // Teal color to match design
+                      backgroundColor:
+                          const Color(0xFF2EC4B6), // Teal color to match design
                       foregroundColor: Colors.white,
                       child: const Icon(Icons.add, size: 28),
                     ),
@@ -321,7 +348,18 @@ class _JournalCard extends StatelessWidget {
 
   String _monthYear(DateTime d) {
     const months = [
-      'January','February','March','April','May','June','July','August','September','October','November','December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
     ];
     return '${months[d.month - 1]} ${d.year}';
   }
